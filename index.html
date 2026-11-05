@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>计划计时器</title>
+<style>
+  :root{
+    --bg:#f0f0f0; --card:#fff; --ink:#191919; --sub:#8c8c8c; --faint:#b5b5b5;
+    --line:#ececec; --green:#07c160; --green-bg:#e8f8ee; --yellow:#f6c445; --yellow-bg:#fdf4dd;
+    --gray:#d9d9d9; --gray-bg:#f2f2f2; --red:#fa5151; --blue:#576b95;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;background:#bfc3c7;display:flex;align-items:center;justify-content:center;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);font-size:14px;overflow:hidden;
+  }
+  .app{
+    width:375px;height:812px;max-height:100vh;background:var(--bg);position:relative;
+    overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:0 12px 40px rgba(0,0,0,.25);border-radius:14px;
+  }
+  @media (max-width:420px){ .app{border-radius:0;box-shadow:none;height:100dvh;max-height:none;width:100%} }
+
+  /* 状态栏 + 胶囊 */
+  .statusbar{height:44px;flex:0 0 44px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;font-size:13px;font-weight:600;letter-spacing:.3px;position:relative;z-index:2}
+  .sb-right{display:flex;gap:5px;align-items:center;font-size:11px;color:#333}
+  .capsule{position:absolute;right:8px;top:52px;height:32px;width:87px;border-radius:16px;
+    background:rgba(255,255,255,.75);border:.5px solid rgba(0,0,0,.12);display:flex;align-items:center;
+    justify-content:space-around;z-index:30;backdrop-filter:blur(6px)}
+  .capsule span{opacity:.75;font-size:15px;line-height:1}
+  .capsule i{height:14px;width:.5px;background:rgba(0,0,0,.18)}
+  .capsule .dot{width:16px;height:16px;border-radius:50%;border:1.5px solid rgba(0,0,0,.45);position:relative}
+  .capsule .dot::after{content:"";position:absolute;inset:4px;border-radius:50%;border:1.5px solid rgba(0,0,0,.45)}
+
+  .navbar{height:44px;flex:0 0 44px;display:flex;align-items:center;padding:0 12px;position:relative;z-index:2}
+  .navbar .back{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#333;cursor:pointer}
+  .navbar .title{position:absolute;left:0;right:0;text-align:center;font-size:16px;font-weight:600;pointer-events:none;
+    padding:0 116px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .navbar .right{position:absolute;right:14px;font-size:13px;color:var(--blue);cursor:pointer}
+  /* 导航栏操作入口：胶囊安全区左侧的图标药丸，替代名称右侧的裸文字按钮 */
+  .navbtn{position:absolute;right:104px;top:8px;height:28px;padding:0 11px;border-radius:14px;background:#fff;
+    border:.5px solid #dcdcdc;display:flex;align-items:center;gap:2px;font-size:15px;line-height:1;color:#333;
+    letter-spacing:1px;cursor:pointer;z-index:2}
+  /* 有右侧动作时：标题左对齐并限宽，包围盒止于胶囊安全区左侧，杜绝遮挡 */
+  .navbar.hasact .title{position:static;flex:1;min-width:0;max-width:calc(100% - 194px);text-align:left;
+    padding:0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  #screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;position:relative;z-index:1}
+  #screen::-webkit-scrollbar{width:0}
+
+  .pad{padding:0 16px}
+  .card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px}
+  .muted{color:var(--sub)}
+  .tiny{font-size:11px;color:var(--sub)}
+  .row{display:flex;align-items:center}
+  .between{justify-content:space-between}
+  .grow{flex:1}
+
+  /* 列表卡片 */
+  .plan-card{position:relative;background:#fff;border-radius:12px;padding:14px 14px 12px;margin-bottom:10px;overflow:hidden}
+  .plan-card.pinned{box-shadow:inset 3px 0 0 var(--green)}
+  .plan-card.dead{opacity:.72}
+  .pc-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .pc-name{font-size:16px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .badge{font-size:10px;padding:2px 7px;border-radius:8px;line-height:15px;white-space:nowrap}
+  .badge.run{background:var(--green-bg);color:#0a8f46}
+  .badge.soon{background:#eef1f5;color:#5c6b7a}
+  .badge.done{background:var(--green-bg);color:#0a8f46}
+  .badge.exp{background:#f3f3f3;color:#9a9a9a}
+  .pill-top{font-size:10px;color:#0a8f46;background:var(--green-bg);border-radius:8px;padding:2px 6px}
+  .bar{height:4px;border-radius:2px;background:#eee;overflow:hidden;flex:1}
+  .bar>i{display:block;height:100%;background:var(--ink);border-radius:2px;transition:width .25s}
+  .pct{font-size:13px;font-weight:600;min-width:52px;text-align:right}
+  .pc-line{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#5f5f5f}
+  .play{width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;
+    justify-content:center;font-size:12px;flex:0 0 30px;cursor:pointer}
+  .play.off{background:#dcdcdc;color:#fff}
+
+  /* Tab bar */
+  .tabbar{flex:0 0 56px;height:56px;background:#f7f7f7;border-top:.5px solid #e2e2e2;display:flex;position:relative;z-index:5}
+  .tabbar .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-size:11px;color:#8a8a8a;cursor:pointer}
+  .tabbar .tab.on{color:var(--ink);font-weight:600}
+  .tabbar .ti{font-size:17px;line-height:1}
+  .toolbar{display:flex;justify-content:flex-end;align-items:center;gap:20px;padding:0 18px 4px;
+    font-size:19px;line-height:1;color:#333}
+  .toolbar .tb{cursor:pointer}
+
+  /* 表单 */
+  .field{background:#fff;border-radius:12px;margin-bottom:10px;overflow:hidden}
+  .field .fr{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 6px}
+  .field .fl{font-size:13px;color:#333;font-weight:500}
+  .field .fv{font-size:12px;color:var(--sub)}
+  .field input.ipt{width:100%;border:0;outline:0;padding:6px 14px 14px;font-size:17px;font-weight:600;
+    background:transparent;color:var(--ink)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;padding:4px 14px 14px}
+  .chip{padding:7px 14px;border-radius:18px;background:#f4f4f4;font-size:13px;color:#444;cursor:pointer;border:1px solid transparent}
+  .chip.on{background:var(--ink);color:#fff}
+  .chip.custom{background:#fff;border-color:#e0e0e0}
+  .dt{display:flex;align-items:center;justify-content:space-between;padding:4px 14px 14px;gap:8px}
+  .dt input[type=date]{flex:1;border:0;outline:0;background:#f6f6f6;border-radius:8px;padding:9px 10px;font-size:13px;color:#333;font-family:inherit}
+  .err{color:var(--red);font-size:12px;padding:0 14px 12px}
+  .footbar{position:sticky;bottom:0;background:rgba(240,240,240,.94);padding:10px 16px 16px;display:flex;gap:10px;
+    backdrop-filter:blur(8px);margin-top:auto}
+  .btn{border-radius:10px;font-size:15px;font-weight:600;border:0;cursor:pointer;height:46px;display:flex;align-items:center;justify-content:center}
+  .btn.main{background:var(--ink);color:#fff;flex:1}
+  .btn.ghost{background:#fff;color:#444;flex:0 0 30%;border:1px solid #e2e2e2}
+  .btn[disabled]{opacity:.4;pointer-events:none}
+  .btn.sm{height:34px;font-size:13px;padding:0 14px;border-radius:8px}
+  .btn.sec{height:38px;font-size:13px;font-weight:600;padding:0 16px;border-radius:9px;background:#fff;color:#333;
+    border:1px solid #d5d5d5;gap:5px;flex:0 0 auto}
+  .btn.sec.on:active{background:#f5f5f5}
+
+  /* 详情 */
+  .hero{padding:6px 16px 14px}
+  .hero .bigrow{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+  .hero .big{font-size:42px;font-weight:700;letter-spacing:-1px;line-height:1.05}
+  .hero .big span{font-size:20px;font-weight:600}
+  .hero .sumline{font-size:12px;color:var(--sub);text-align:right;line-height:1.5;padding-bottom:4px;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .hero .sumline b{font-weight:600;color:#333}
+  .hero .bar{height:6px;border-radius:3px;margin-top:10px}
+  .hero .subline{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-top:8px}
+  .aux{margin-top:10px;font-size:12px;color:#6b6b6b;background:#fafafa;border-radius:8px;padding:8px 10px;
+    display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .aux b{font-weight:600;color:#333}
+  .aux .gap{color:#c46a00}
+  .todaybar{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:12px;padding:12px 14px;margin:0 16px 10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px}
+  .kpi{background:#fff;border-radius:12px;padding:12px 12px 13px}
+  .kpi .k{font-size:11px;color:var(--sub);margin-bottom:6px;display:flex;align-items:center;gap:4px}
+  .kpi .v{font-size:17px;font-weight:600}
+  .kpi .v small{font-size:11px;color:var(--sub);font-weight:400;margin-left:4px}
+  .kpi .rline{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-top:2px;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .kpi .rline .rl{color:var(--sub)}
+  .kpi .rline .rv{font-weight:600;color:#333}
+  .seg{display:flex;background:#fff;margin:12px 16px 0;border-radius:10px;padding:4px;gap:4px}
+  .seg .s{flex:1;text-align:center;padding:8px 0;font-size:13px;color:#666;border-radius:8px;cursor:pointer}
+  .seg .s.on{background:#f0f0f0;color:#111;font-weight:600}
+  /* 顶部分段 Tab：紧贴导航栏，切换即整屏替换 */
+  .seg.topseg{margin:0;border-radius:0;padding:0 16px;gap:0;border-bottom:1px solid #ececec;
+    position:sticky;top:0;z-index:6}
+  .seg.topseg .s{padding:11px 0 10px;font-size:14px;color:#666;background:transparent;border-radius:0;position:relative}
+  .seg.topseg .s.on{background:transparent;color:#111;font-weight:600}
+  .seg.topseg .s.on::after{content:'';position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+    width:28px;height:3px;border-radius:2px;background:#111}
+
+  /* 记录面板 */
+  .legend{display:flex;gap:14px;flex-wrap:wrap;padding:14px 16px 6px;font-size:11px;color:#777}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .month{padding:8px 16px 0}
+  .month h4{margin:6px 0 8px;font-size:13px;font-weight:600;color:#333}
+  .wk{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;font-size:10px;color:#aaa;text-align:center;margin-bottom:4px}
+  .mg{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .cell{aspect-ratio:1/1;border-radius:7px;background:#f5f5f5;position:relative;display:flex;align-items:center;
+    justify-content:center;font-size:10px;color:#9a9a9a}
+  .cell .d{position:absolute;top:3px;left:4px;font-size:9px;opacity:.65}
+  .cell.met{background:var(--green);color:#fff}
+  .cell.part{background:var(--yellow);color:#6b4c00}
+  .cell.none{background:#f1f1f1;color:#b0b0b0}
+  .cell.out{background:transparent;color:#c9c9c9}
+  .cell .man{position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:#fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.18)}
+  .cell.met .man{background:#0a5c2e}
+  .cell.today{box-shadow:inset 0 0 0 2px #111}
+
+  /* 日历 */
+  .calhead{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 10px}
+  .calhead .m{font-size:17px;font-weight:700}
+  .calnav{font-size:20px;color:#666;padding:6px 10px;cursor:pointer}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:0 14px}
+  /* 任务级色条：底色中性，颜色只属于任务条。375px 下 3 条不挤压日期数字：
+     行高 13→12、条行 9→8、行距 3→2，格高 46→48 */
+  .cday{min-height:48px;border-radius:9px;background:#fff;padding:3px;display:flex;
+    flex-direction:column;position:relative;cursor:pointer}
+  .cday .dtop{display:flex;justify-content:space-between;align-items:flex-start;height:12px;padding:0 1px}
+  .cday .dn{font-size:11px;font-weight:600;color:#333;line-height:12px;white-space:nowrap}
+  .cday .pn{font-size:7px;color:#9a9a9a;line-height:12px;white-space:nowrap}
+  .cday .bars{margin-top:2px;display:flex;flex-direction:column;gap:2px}
+  .cday .tb{display:flex;align-items:center;gap:2px;height:8px}
+  .cday .tb em{font-style:normal;font-size:8px;line-height:8px;color:#9a9a9a;width:8px;flex:0 0 8px;text-align:center}
+  .cday .tr{flex:1;min-width:0;height:3px;border-radius:2px;background:#f0f0f0;overflow:hidden}
+  .cday .tr i{display:block;height:3px;border-radius:2px}
+  .cday .tr i.g{background:var(--green)}
+  .cday .tr i.y{background:var(--yellow)}
+  .cday.future{opacity:.35}
+  .cday.out{background:transparent}
+  .cday.today{box-shadow:inset 0 0 0 2px #111}
+  .cday .dn .man{display:inline-block;width:4px;height:4px;border-radius:50%;background:#576b95;margin-left:2px;vertical-align:1px}
+  .legend i.lg{width:13px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .legend i.lg.g{background:var(--green)} .legend i.lg.y{background:var(--yellow)} .legend i.lg.n{background:#e6e6e6}
+  /* 汇总页底部：单行说明，次要解释收进 "?" 气泡 */
+  .callegend{display:flex;align-items:center;gap:6px;padding:10px 14px 12px;font-size:11px;color:#777;white-space:nowrap}
+  .callegend i.lg{width:13px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .callegend i.lg.g{background:var(--green)} .callegend i.lg.y{background:var(--yellow)}
+  .callegend .q{width:15px;height:15px;border-radius:50%;border:.5px solid #cfcfcf;color:#888;font-size:10px;
+    display:inline-flex;align-items:center;justify-content:center;flex:0 0 15px;cursor:pointer;line-height:1}
+  .callegend .hint{margin-left:auto;color:#9a9a9a}
+  .dots{display:flex;gap:2px}
+
+  /* 我的 */
+  .me-head{display:flex;align-items:center;gap:12px;background:#fff;padding:18px 16px;margin-bottom:10px}
+  .avatar{width:52px;height:52px;border-radius:50%;background:#e6e6e6;display:flex;align-items:center;
+    justify-content:center;font-size:22px;color:#9a9a9a}
+  .menu{background:#fff;border-radius:12px;margin:0 16px 10px;overflow:hidden}
+  .mi{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:.5px solid var(--line);font-size:14px;cursor:pointer}
+  .mi:last-child{border-bottom:0}
+  .mi .v{font-size:12px;color:#9a9a9a}
+  .mi .ar{color:#c8c8c8;margin-left:6px}
+
+  /* 覆盖层 */
+  .mask{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:flex-end;justify-content:center}
+  .mask.center{align-items:center}
+  .sheet{width:100%;background:#f7f7f7;border-radius:16px 16px 0 0;overflow:hidden;animation:up .22s ease}
+  @keyframes up{from{transform:translateY(20px);opacity:.6}to{transform:none;opacity:1}}
+  .sheet .hd{text-align:center;padding:16px;font-size:13px;color:#7a7a7a;border-bottom:.5px solid #e6e6e6}
+  .sheet .it{padding:16px;text-align:center;font-size:16px;background:#fff;border-bottom:.5px solid #eee;cursor:pointer}
+  .sheet .it.danger{color:var(--red)}
+  .sheet .it.cancel{margin-top:8px;color:#333}
+  .dialog{width:290px;background:#fff;border-radius:14px;overflow:hidden;animation:up .18s ease}
+  .dialog .dt{text-align:center;font-size:16px;font-weight:600;padding:20px 20px 6px}
+  .dialog .db{text-align:center;font-size:13px;color:#666;padding:0 20px 18px;line-height:1.5}
+  .dialog .df{display:flex;border-top:.5px solid #eee}
+  .dialog .df div{flex:1;text-align:center;padding:14px;font-size:16px;cursor:pointer;color:#333}
+  .dialog .df div:first-child{border-right:.5px solid #eee;color:#666}
+  .dialog .df div.danger{color:var(--red)}
+
+  .snack{position:absolute;left:16px;right:16px;bottom:70px;background:#333;color:#fff;border-radius:10px;
+    padding:12px 14px;font-size:13px;display:flex;align-items:center;justify-content:space-between;z-index:70;
+    animation:up .2s ease}
+  .snack b{color:#ffd66b;font-weight:600;cursor:pointer}
+  .toastbar{position:absolute;top:6px;left:12px;right:12px;background:#fff8e1;color:#7a5b00;border-radius:10px;
+    padding:10px 12px;font-size:12px;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.12);animation:up .2s ease}
+
+  /* 计时页 */
+  .timer{position:absolute;inset:0;background:#fff;z-index:50;display:flex;flex-direction:column}
+  .timer .tv-head{padding:8px 16px 0}
+  .timer .goal{font-size:12px;color:var(--sub)}
+  .timer .acc{margin-top:6px;font-size:14px;color:#333;font-weight:500}
+  .ringwrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative}
+  .ring{width:236px;height:236px;position:relative;display:flex;align-items:center;justify-content:center}
+  .ring svg{position:absolute;inset:0}
+  .ring .t{font-size:30px;font-weight:700;letter-spacing:.5px;font-variant-numeric:tabular-nums}
+  .ring .st{font-size:12px;color:var(--sub);margin-top:6px;text-align:center}
+  .ring .inner{display:flex;flex-direction:column;align-items:center;z-index:2}
+  .timer .ops{padding:0 20px 10px;display:flex;flex-direction:column;gap:10px}
+  .timer .ops .row2{display:flex;gap:10px}
+  .demo-links{display:flex;gap:14px;justify-content:center;padding:4px 0 22px;font-size:11px;color:#a0a0a0}
+  .demo-links span{cursor:pointer;text-decoration:underline dotted}
+
+  .empty{text-align:center;padding:90px 30px;color:#9a9a9a}
+  .empty .ei{font-size:44px;margin-bottom:14px;opacity:.55}
+  .empty h3{font-size:17px;color:#333;font-weight:600;margin:0 0 8px}
+  .empty p{font-size:13px;line-height:1.6;margin:0 0 22px}
+  .empty .btn{width:200px;margin:0 auto}
+
+  .skeleton{background:#fff;border-radius:12px;height:92px;margin-bottom:10px;position:relative;overflow:hidden}
+  .skeleton::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,#f3f3f3,transparent);
+    animation:sh 1.2s infinite}
+  @keyframes sh{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+  .sheetbody{max-height:60vh;overflow:auto}
+  .legal{padding:16px 18px;font-size:12px;line-height:1.8;color:#555;max-height:52vh;overflow:auto;background:#fff}
+  .legal h4{font-size:13px;margin:12px 0 6px}
+  .picker{display:flex;gap:10px;padding:14px}
+  .picker select,.picker input{flex:1;padding:10px;border-radius:8px;border:1px solid #e5e5e5;background:#fff;font-size:14px;font-family:inherit}
+  /* 补录时长：输入框右侧常驻单位，并有实时换算（不出现裸数字） */
+  .withunit{flex:1;display:flex;align-items:center;background:#fff;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden}
+  .withunit input{flex:1;min-width:0;border:0;padding:10px;font-size:14px;font-family:inherit;outline:0}
+  .withunit span{flex:0 0 auto;padding:0 10px;font-size:12px;color:#8c8c8c;border-left:1px solid #eee;line-height:38px}
+  .mpreview{font-size:11px;color:#8c8c8c;padding:0 14px 10px}
+  .dact{display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:10px 16px 14px;border-top:.5px solid #eee}
+  .dact .cancel{font-size:14px;color:#666;cursor:pointer;padding:8px 2px}
+  .tag{font-size:10px;color:var(--blue);border:1px solid #dfe5f2;background:#f2f5fb;border-radius:6px;padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="statusbar">
+    <span id="clock">11:26</span>
+    <div class="sb-right"><span>●●●</span><span>▮</span></div>
+  </div>
+  <div class="capsule"><span>···</span><i></i><div class="dot"></div></div>
+  <div id="screen"></div>
+  <div id="tabbar"></div>
+</div>
+
+<script>
+/* ============ 常量与工具 ============ */
+const DAY = 86400000;
+const DEMO_TODAY = '2027-02-28';           // PRD 示例"今天"（计划第 120 天）
+const KEY = 'plan_timer_v2_state';
+
+const $ = (s) => document.querySelector(s);
+const pad2 = (n) => String(n).padStart(2, '0');
+const fmtDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const parseD = (s) => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (s, n) => { const d = parseD(s); d.setDate(d.getDate()+n); return fmtDate(d); };
+const diffDays = (a, b) => Math.round((parseD(a) - parseD(b)) / DAY);
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const hLabel = (min) => {
+  if (min === 0) return '0h';
+  if (min % 60 === 0) return (min/60) + 'h';
+  return (min/60).toFixed(1) + 'h';
+};
+const mmss = (sec) => `${pad2(Math.floor(sec/3600))}:${pad2(Math.floor(sec%3600/60))}:${pad2(Math.floor(sec%60))}`;
+
+/* ============ 数据层 ============ */
+let S = load();
+
+function emptyState(){
+  return { plans: [], segs: [], running: null, session: null, tab: 'plans', deleted: null, speed: 1, calYM: {y:2027, m:1} };
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if (raw) { const st = JSON.parse(raw); if (st && st.plans) return st; }
+  }catch(e){}
+  return seed();
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+
+function seed(){
+  const st = emptyState();
+  const P = (id,name,target,start,end,pinned) => ({
+    id, name, targetMin: target, start, end,
+    createdAt: Date.now(), updatedAt: Date.now(),
+    pinnedAt: pinned ? Date.now() : null, deletedAt: null, targetVersion: 1, changedAt: null
+  });
+  st.plans = [
+    P('p1','A计划', 60, '2026-11-01', '2027-10-31', true),
+    P('p2','冲刺计划', 60, '2027-02-01', '2027-03-31', false),
+    P('p3','B计划', 45, '2026-11-01', '2027-04-30', false),
+    P('p4','C计划', 30, '2026-08-01', '2026-10-31', false),
+    P('p5','D计划', 25, '2027-03-01', '2027-05-31', false),
+    P('p6','E计划', 45, '2026-05-01', '2026-06-30', false),
+    P('p7','日语计划', 30, '2027-01-15', '2027-06-30', false),
+  ];
+
+  /* A计划：80 个有记录日 = 60 天×90min + 18 天×30min + 1 天×28min + 今天 32min = 6000min
+     其中 2027-02-24 记 30min，专门用于"一天多任务混态"示例（与冲刺计划同日） */
+  let i = 0;
+  for (let d = 0; d < 120; d++){
+    const date = addDays('2026-11-01', d);
+    if (date === DEMO_TODAY) continue;
+    if (d === 35) continue;                       // 30min 挪到 2027-02-24
+    if (d % 2 === 0) {
+      if (date === '2027-02-19') {               // 90min 拆成 70 计时 + 20 补录 → "含补录"示例日
+        pushSeg('p1', date, 70, 'timer');
+        pushSeg('p1', date, 20, 'manual');
+      } else pushSeg('p1', date, 90, 'timer');
+    }
+    else if (d <= 37) { pushSeg('p1', date, d === 37 ? 28 : 30, 'timer'); }
+  }
+  pushSeg('p1', '2027-02-24', 30, 'timer');
+  pushSeg('p1', DEMO_TODAY, 32, 'timer');
+
+  /* 冲刺计划：3910min / 3540min = 110.5%，已超额 6.2h
+     2027-02-23 = 110min，2027-02-24 = 60min（后者与 A计划 30min 构成混态示例日） */
+  for (let d = 0; d < 22; d++) pushSeg('p2', addDays('2027-02-01', d), 170, 'timer');
+  pushSeg('p2', '2027-02-23', 110, 'timer');
+  pushSeg('p2', '2027-02-24', 60, 'timer');
+
+  /* E计划：已结束 + 超额示例 2867min / 2745min = 104.4% */
+  for (let d = 0; d < 61; d++) pushSeg('p6', addDays('2026-05-01', d), 47, 'timer');
+
+  /* B计划：进行中；2027-02-23 补 20min，使该日共 4 个任务 → 格内显示 3 条 + "+1" */
+  for (let d = 0; d < 27; d++) pushSeg('p3', addDays('2026-11-01', d*2), 45, 'timer');
+  pushSeg('p3', '2027-02-23', 20, 'timer');
+
+  /* 日语计划：只在 2027-02-23 记 25min → 该日 4 个任务，触发「3 条 + +1」示例 */
+  pushSeg('p7', '2027-02-23', 25, 'timer');
+
+  /* C计划：已过期，1600/2760 = 58.0% */
+  for (let d = 0; d < 40; d++) pushSeg('p4', addDays('2026-08-01', d*2), 40, 'timer');
+
+  st.segs.sort((a,b)=>a.date.localeCompare(b.date));
+  return st;
+
+  function pushSeg(planId, date, min, source){
+    st.segs.push({ id: uid(), planId, date, min, source, reason: 'user_end', startTs: null, endTs: null });
+  }
+}
+
+/* ============ 计算口径（严格按 PRD §3 / §7.4） ============ */
+const planDays = (p) => diffDays(p.end, p.start) + 1;
+const targetTotal = (p) => p.targetMin * planDays(p);
+const planSegs = (p) => (S.segs || []).filter(s => s.planId === p.id && !s.void)
+  .filter(s => s.date >= p.start && s.date <= p.end);
+const accumulated = (p) => planSegs(p).reduce((a,s)=>a+s.min, 0);
+const dayMap = (p) => {
+  const m = {};
+  planSegs(p).forEach(s => { m[s.date] = (m[s.date]||0) + s.min; });
+  return m;
+};
+const activeDays = (p) => Object.values(dayMap(p)).filter(v=>v>0).length;
+const metDays = (p) => Object.values(dayMap(p)).filter(v=>v >= p.targetMin).length;
+const elapsedDays = (p) => Math.max(0, Math.min(planDays(p), diffDays(DEMO_TODAY, p.start) + 1));
+const dueMin = (p) => elapsedDays(p) * p.targetMin;
+const gapMin = (p) => Math.max(0, dueMin(p) - accumulated(p));
+const completion = (p) => targetTotal(p) ? accumulated(p)/targetTotal(p)*100 : 0;
+const statusOf = (p) => {
+  if (DEMO_TODAY < p.start) return '未开始';
+  if (DEMO_TODAY <= p.end) return '进行中';
+  return accumulated(p) >= targetTotal(p) ? '已结束' : '已过期';
+};
+const todayMin = (p) => (dayMap(p)[DEMO_TODAY] || 0);
+
+/* 会话（当前计时） */
+function sessionSec(){
+  if (!S.session) return 0;
+  const sm = S.session;
+  if (sm.state === 'running' && sm.startedAt){
+    return sm.accruedSec + Math.floor((Date.now() - sm.startedAt)/1000) * S.speed;
+  }
+  return sm.accruedSec;
+}
+function sessionMin(){ return Math.floor(sessionSec()/60); }
+
+/* ============ 视图路由 ============ */
+let view = { name:'list', planId:null, editId:null, tab2:'overview' };
+
+function go(name, obj){
+  view = Object.assign({ name, planId:null, editId:null, tab2:'overview' }, obj || {});
+  render();
+}
+
+/* ============ 渲染 ============ */
+function render(){
+  if (view.name === 'timer') { renderTimer(); return; }
+
+  let html = '';
+  if (view.name === 'list') html = renderList();
+  else if (view.name === 'calendar') html = renderCalendar();
+  else if (view.name === 'detail') html = renderDetail();
+  else if (view.name === 'form') html = renderForm();
+  else if (view.name === 'me') html = renderMe();
+
+  $('#screen').innerHTML = html;
+  $('#tabbar').innerHTML = (view.name === 'list' || view.name === 'calendar') ? renderTabbar() : '';
+  bindCommon();
+}
+
+function nav(title, opt){
+  opt = opt || {};
+  const capsuleSpace = `<div style="width:96px"></div>`;
+  return `<div class="navbar ${opt.right?'hasact':''}">
+    ${opt.back ? `<div class="back" onclick="goBack()">‹</div>` : `<div style="width:32px"></div>`}
+    <div class="title">${title}</div>
+    ${opt.right || capsuleSpace}
+  </div>`;
+}
+
+function renderTabbar(){
+  return `<div class="tabbar">
+    <div class="tab ${S.tab==='plans'?'on':''}" onclick="switchTab('plans')"><div class="ti">☰</div>计划</div>
+    <div class="tab ${S.tab==='cal'?'on':''}" onclick="switchTab('cal')"><div class="ti">▦</div>汇总</div>
+  </div>`;
+}
+function switchTab(t){
+  S.tab = t; save();
+  go(t === 'plans' ? 'list' : 'calendar');
+}
+
+/* ---------- S3 列表 ---------- */
+const statusRank = (p) => (statusOf(p)==='已结束'||statusOf(p)==='已过期') ? 1 : 0;
+function renderList(){
+  const plans = S.plans.filter(p => !p.deletedAt)
+    .sort((a,b) => (b.pinnedAt||0) - (a.pinnedAt||0)
+      || statusRank(a) - statusRank(b)
+      || b.updatedAt - a.updatedAt);
+  const toolbar = `<div class="toolbar">
+      ${plans.length ? `<span class="tb" onclick="go('form')">＋</span>` : ''}
+      <span class="tb" onclick="go('me')">👤</span>
+    </div>`;
+  if (!plans.length){
+    return nav('我的计划') + toolbar + `<div class="empty">
+      <div class="ei">🗂</div>
+      <h3>还没有计划</h3>
+      <p>设定一个每天的目标时长，<br/>开始记录你的学习时间</p>
+      <button class="btn main" onclick="go('form')">新建第一个计划</button>
+    </div>`;
+  }
+  const cards = plans.map(p => cardHTML(p)).join('');
+  return nav('我的计划') + toolbar
+    + `<div class="pad" style="padding-top:2px">
+        <div class="tiny" style="margin:2px 2px 10px">今天 ${DEMO_TODAY}</div>
+        ${cards}
+      </div>`;
+}
+
+function cardHTML(p){
+  const st = statusOf(p);
+  const c = completion(p);
+  const w = Math.min(100, c);
+  const badge = { '进行中':['run','进行中'], '未开始':['soon','未开始'], '已结束':['done','已结束'], '已过期':['exp','已过期'] }[st];
+  const tm = todayMin(p);
+  let line3 = '', line4 = `累计 ${hLabel(accumulated(p))} / 目标 ${hLabel(targetTotal(p))}`;
+  if (st === '进行中') line3 = `今日 ${tm} / ${p.targetMin} 分钟${tm >= p.targetMin ? ' · ✓ 已达标' : ''}`;
+  else if (st === '未开始') line3 = `距开始还有 ${Math.max(0, diffDays(p.start, DEMO_TODAY))} 天`;
+  else if (st === '已结束') line3 = `已结束 · 共 ${planDays(p)} 天`;
+  else line3 = `已过期 · 差 ${hLabel(Math.max(0, targetTotal(p)-accumulated(p)))} 未完成`;
+  if (st === '未开始') line4 = `目标 ${hLabel(targetTotal(p))}`;
+
+  const over = c > 100;
+  return `<div class="plan-card ${p.pinnedAt?'pinned':''} ${(st==='已过期'||st==='已结束')?'dead':''}" data-id="${p.id}">
+    <div class="pc-head">
+      <div class="pc-name">${escapeHtml(p.name)}</div>
+      <span class="badge ${badge[0]}">${badge[1]}</span>
+      ${p.pinnedAt?'<span class="pill-top">置顶</span>':''}
+      <div class="grow"></div>
+      ${st==='进行中'?`<div class="play" onclick="event.stopPropagation();openTimer('${p.id}')">▶</div>`:''}
+      ${st==='未开始'?`<div class="play off">▶</div>`:''}
+    </div>
+    <div class="row" style="gap:10px">
+      <div class="bar"><i style="width:${w}%"></i></div>
+      <div class="pct">${c.toFixed(1)}%</div>
+    </div>
+    ${over?`<div class="tiny" style="margin-top:6px;color:#0a8f46">已超额 ${hLabel(accumulated(p)-targetTotal(p))}</div>`:''}
+    <div class="pc-line"><span class="grow">${line3}</span></div>
+    <div class="pc-line" style="margin-top:4px;color:#a0a0a0;font-size:11px">${line4}</div>
+  </div>`;
+}
+
+/* ---------- S2 表单 ---------- */
+let formState = null;
+function renderForm(){
+  const editing = view.editId ? S.plans.find(p=>p.id===view.editId) : null;
+  if (!formState || formState._for !== (view.editId||'new')){
+    formState = editing
+      ? { _for: view.editId, name: editing.name, target: editing.targetMin, start: editing.start, end: editing.end, custom:false }
+      : { _for:'new', name:'', target:60, start:DEMO_TODAY, end: addDays(DEMO_TODAY, 364), custom:false };
+  }
+  const f = formState;
+  const days = Math.max(0, diffDays(f.end, f.start) + 1);
+  const chips = [[30,'30 分钟'],[60,'1 小时'],[90,'1.5 小时'],[120,'2 小时']]
+    .map(([v,l]) => `<div class="chip ${f.target===v&&!f.custom?'on':''}" onclick="setTarget(${v})">${l}</div>`).join('');
+  const customOn = f.custom;
+  return nav(editing?'编辑计划':'新建计划', { back:true })
+   + `<div class="pad" style="padding-top:6px;min-height:calc(100% - 44px);display:flex;flex-direction:column">
+      <div class="field">
+        <div class="fr"><div class="fl">计划名称</div><div class="fv" id="cnt">${f.name.length}/10</div></div>
+        <input class="ipt" id="fname" maxlength="10" value="${escapeHtml(f.name)}" placeholder="例：每天背 50 个单词" oninput="onNameInput(this.value)" />
+        <div class="err" id="ename" style="display:none">请输入计划名称</div>
+      </div>
+
+      <div class="field">
+        <div class="fr"><div class="fl">每日目标</div><div class="fv">合计 ${hLabel(f.target*days)}</div></div>
+        <div class="chips">${chips}<div class="chip custom ${customOn?'on':''}" onclick="toggleCustom()">自定义</div></div>
+        ${customOn?`<div class="dt"><input id="fmin" type="number" min="1" max="720" value="${f.target}" style="flex:1;border:1px solid #e5e5e5;border-radius:8px;padding:9px" oninput="setCustom(this.value)"/> <span class="tiny">分钟（1–720）</span></div>`:''}
+        <div class="err" id="etarget" style="display:none">每日目标需大于 0 分钟</div>
+      </div>
+
+      <div class="field">
+        <div class="fr"><div class="fl">计划区间</div><div class="fv">共 ${days} 天</div></div>
+        <div class="dt">
+          <input type="date" id="fstart" value="${f.start}" onchange="setRange()" />
+          <span class="tiny">至</span>
+          <input type="date" id="fend" value="${f.end}" onchange="setRange()" />
+        </div>
+        <div class="err" id="erange" style="display:none">结束日期需晚于开始日期</div>
+      </div>
+
+      <div class="tiny" style="padding:4px 6px 8px">区间含首尾两天；计划天数 = 结束 − 开始 + 1。</div>
+      <div class="footbar">
+        <button class="btn ghost" onclick="cancelForm()">取消</button>
+        <button class="btn main" onclick="savePlan()">保存</button>
+      </div>
+    </div>`;
+}
+function setTarget(v){ formState.custom=false; formState.target=v; rerenderForm(); }
+function onNameInput(v){
+  formState.name = v;
+  const c = $('#cnt'); if (c) c.textContent = v.length + '/10';
+}
+function cancelForm(){
+  const editingId = view.editId;
+  formState = null;
+  if (editingId) go('detail', {planId: editingId}); else go('list');
+}
+function toggleCustom(){ formState.custom = !formState.custom; rerenderForm(); }
+function setCustom(v){ const n = parseInt(v,10); formState.target = isNaN(n)?0:n; formState.custom = true; const d = Math.max(0,diffDays(formState.end,formState.start)+1); document.querySelectorAll('.field .fv')[1].textContent = '合计 ' + hLabel(formState.target*d); }
+function setRange(){
+  formState.start = $('#fstart').value; formState.end = $('#fend').value;
+  rerenderForm();
+}
+function rerenderForm(){
+  const cur = $('#fname') ? $('#fname').value : formState.name;
+  formState.name = cur;
+  $('#screen').innerHTML = renderForm();
+}
+function savePlan(){
+  const f = formState;
+  f.name = ($('#fname')?$('#fname').value:'').trim();
+  let ok = true;
+  const show = (id,on) => { const el = $(id); if(el) el.style.display = on?'block':'none'; };
+  if (!f.name){ show('#ename', true); ok = false; }
+  if (!f.target || f.target < 1 || f.target > 720){ show('#etarget', true); ok = false; }
+  const days = diffDays(f.end, f.start) + 1;
+  if (days < 1 || days > 3650){ show('#erange', true); ok = false; }
+  if (!ok) return;
+
+  if (view.editId){
+    const p = S.plans.find(x=>x.id===view.editId);
+    if (p.targetMin !== f.target || p.start !== f.start || p.end !== f.end){
+      p.targetVersion += 1; p.changedAt = DEMO_TODAY;
+    }
+    p.name = f.name; p.targetMin = f.target; p.start = f.start; p.end = f.end; p.updatedAt = Date.now();
+    save(); go('detail', {planId:p.id}); return;
+  }
+  const p = { id: uid(), name: f.name, targetMin: f.target, start: f.start, end: f.end,
+    createdAt: Date.now(), updatedAt: Date.now(), pinnedAt: null, deletedAt: null, targetVersion: 1, changedAt: null };
+  S.plans.push(p); save(); formState = null; go('list');
+}
+
+/* ---------- S5 详情 ---------- */
+function renderDetail(){
+  const p = S.plans.find(x=>x.id===view.planId);
+  if (!p) return nav('计划详情', { back:true }) + '<div class="empty"><p>计划不存在</p></div>';
+  const st = statusOf(p), c = completion(p), acc = accumulated(p), tt = targetTotal(p);
+  const due = dueMin(p), gap = gapMin(p), tm = todayMin(p);
+  const over = c > 100;
+  const badge = { '进行中':['run','进行中'], '未开始':['soon','未开始'], '已结束':['done','已结束'], '已过期':['exp','已过期'] }[st];
+  const running = S.session && S.session.planId === p.id;
+
+  const hero = `<div class="hero">
+    <div class="row" style="gap:8px;margin-bottom:10px">
+      <span class="badge ${badge[0]}">${badge[1]}</span>
+      ${p.pinnedAt?'<span class="pill-top">置顶</span>':''}
+    </div>
+    <div class="bigrow">
+      <div class="big">${c.toFixed(1)}<span>%</span></div>
+      <div class="sumline">累计 <b>${hLabel(acc)}</b> / 目标 ${hLabel(tt)}${over?'<br/>已超额 '+hLabel(acc-tt):''}</div>
+    </div>
+    <div class="bar"><i style="width:${Math.min(100,c)}%"></i></div>
+    ${st==='进行中'?`<div class="aux">
+        <span>应完成 <b>${hLabel(due)}</b></span>
+        <span>/</span>
+        <span>已投入 <b>${hLabel(acc)}</b></span>
+        <span>/</span>
+        <span class="${gap?'gap':''}">${gap?'落后 <b>'+hLabel(gap)+'</b>':'已跟上应完成进度'}</span>
+    </div>`:''}
+    ${p.changedAt?`<div class="tiny" style="margin-top:8px">目标已于 ${p.changedAt} 调整（第 ${p.targetVersion} 版）</div>`:''}
+  </div>`;
+
+  /* 今日条：纯展示，右侧不再放任何按钮（计时入口只保留底栏一个） */
+  let tbText = `今日 ${tm} / ${p.targetMin} 分钟`;
+  if (st === '未开始') tbText = `距开始还有 ${Math.max(0, diffDays(p.start, DEMO_TODAY))} 天 · 目标 ${hLabel(tt)}`;
+  else if (st === '已结束') tbText = `已结束 · 共 ${planDays(p)} 天`;
+  else if (st === '已过期') tbText = `已过期 · 差 ${hLabel(Math.max(0, tt - acc))} 未完成`;
+  const todaybar = `<div class="todaybar">
+      <div style="font-size:13px">${tbText}</div>
+    </div>`;
+
+  const kpis = `<div class="grid2">
+      <div class="kpi"><div class="k">每日目标 <span style="color:#576b95">✎</span></div><div class="v">${hLabel(p.targetMin)}<small>${p.targetMin} 分钟</small></div></div>
+      <div class="kpi"><div class="k">计划区间 <span style="color:#576b95">✎</span></div>
+        <div class="rline"><span class="rl">开始</span><span class="rv">${p.start.replace(/-/g,'.')}</span></div>
+        <div class="rline"><span class="rl">结束</span><span class="rv">${p.end.replace(/-/g,'.')}</span></div>
+        <div class="tiny" style="margin-top:4px">共 ${planDays(p)} 天</div></div>
+      <div class="kpi"><div class="k">已执行</div><div class="v">${activeDays(p)}<small>天</small></div></div>
+      <div class="kpi"><div class="k">达标</div><div class="v">${metDays(p)}<small>天</small></div><div class="tiny" style="margin-top:4px">当日达到 ${p.targetMin} 分钟</div></div>
+    </div>`;
+
+  /* 顶部分段 Tab：切换即整屏替换，不做"滚到第 4 块" */
+  const seg = `<div class="seg topseg">
+      <div class="s ${view.tab2==='overview'?'on':''}" onclick="setTab2('overview')">计划概况</div>
+      <div class="s ${view.tab2==='record'?'on':''}" onclick="setTab2('record')">执行记录</div>
+    </div>`;
+
+  const overview = `<div style="padding-bottom:6px">
+      ${hero}${todaybar}${kpis}
+      <div class="tiny" style="padding:10px 16px 4px">共 ${planDays(p)} 天 · 目标总量 ${hLabel(tt)} · 统计窗口含首尾</div>
+    </div>`;
+  const body = view.tab2 === 'record' ? recordPanel(p) : overview;
+
+  /* 唯一主按钮：未开始/进行中/计时中/已暂停/已结束/已过期 六态各一个 */
+  let footLabel = '开始计时', footAction = `openTimer('${p.id}')`, footDisabled = st === '未开始';
+  if (running) footLabel = '继续计时';
+  if (st === '已结束' || st === '已过期'){ footLabel = '再建一个'; footAction = "go('form')"; }
+  const foot = `<div class="footbar">
+      <button class="btn main" ${footDisabled?'disabled':''} onclick="${footAction}">${footLabel}</button>
+    </div>`;
+
+  return nav(escapeHtml(p.name), { back:true, right:`<div class="navbtn" onclick="openMore('${p.id}')">⋮</div>` })
+    + seg + body + foot;
+}
+function setTab2(t){
+  view.tab2 = t; render();
+  const sc = $('#screen'); if (sc) sc.scrollTop = 0;   // 整屏替换后回到首屏，避免"停在原滚动位置"看不出切换
+}
+
+/* ---------- S6 执行记录面板 ---------- */
+function recordPanel(p){
+  const dm = dayMap(p);
+  const months = [];
+  for (let k = 0; k < 4; k++){
+    const d = new Date(2027, 1 - k, 1);
+    months.push({ y: d.getFullYear(), m: d.getMonth() });
+  }
+  const hasManual = (date) => S.segs.some(s => s.planId===p.id && s.date===date && s.source==='manual');
+
+  const block = (mo) => {
+    const first = new Date(mo.y, mo.m, 1);
+    const dim = new Date(mo.y, mo.m+1, 0).getDate();
+    const lead = (first.getDay() + 6) % 7; // 周一起始
+    let cells = '';
+    for (let i=0;i<lead;i++) cells += `<div class="cell out"></div>`;
+    for (let d=1; d<=dim; d++){
+      const date = `${mo.y}-${pad2(mo.m+1)}-${pad2(d)}`;
+      const v = dm[date] || 0;
+      let cls = 'none', txt = '';
+      if (date < p.start || date > p.end) { cls = 'out'; }
+      else if (v >= p.targetMin) { cls = 'met'; txt = v + 'm'; }
+      else if (v > 0) { cls = 'part'; txt = v + 'm'; }
+      else { cls = 'none'; txt = ''; }
+      const today = date === DEMO_TODAY ? 'today' : '';
+      const man = hasManual(date) ? '<div class="man"></div>' : '';
+      cells += `<div class="cell ${cls} ${today}" onclick="openDay('${p.id}','${date}')"><span class="d">${d}</span>${txt}${man}</div>`;
+    }
+    return `<div class="month"><h4>${mo.y}年${mo.m+1}月</h4>
+      <div class="wk"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+      <div class="mg">${cells}</div></div>`;
+  };
+
+  const empty = planSegs(p).length === 0;
+  if (empty) {
+    return `<div class="empty" style="padding:48px 30px">
+      <div class="ei">🗓</div><h3>还没有记录</h3>
+      <p>去开始第一次计时</p>
+    </div>`;
+  }
+  return `<div class="legend">
+      <span><i style="background:var(--green)"></i>达标</span>
+      <span><i style="background:var(--yellow)"></i>有记录未达标</span>
+      <span><i style="background:#f1f1f1"></i>无记录</span>
+      <span><i style="background:#576b95;border-radius:50%"></i>含补录</span>
+    </div>
+    <div class="row between" style="padding:0 16px 4px">
+      <span class="tiny">区间外显示为空</span>
+      <span class="tag" onclick="openManual('${p.id}')">＋ 手动补录</span>
+    </div>
+    ${months.map(block).join('')}
+    <div style="height:10px"></div>`;
+}
+
+/* ---------- S8 日历 ---------- */
+function shortName(n){
+  const s = String(n || '?');
+  return /^[A-Za-z0-9]/.test(s) ? s[0] : s.slice(0,1);
+}
+function renderCalendar(){
+  const { y, m } = S.calYM;
+  const first = new Date(y, m, 1);
+  const dim = new Date(y, m+1, 0).getDate();
+  const lead = (first.getDay() + 6) % 7;
+
+  // 任务级：date -> [{p, v}]，只保留当天有记录的任务
+  const tasks = {};
+  S.plans.filter(p=>!p.deletedAt).forEach(p => {
+    const dm = dayMap(p);
+    Object.keys(dm).forEach(d => {
+      if (d < p.start || d > p.end) return;
+      (tasks[d] = tasks[d] || []).push({ p, v: dm[d] });
+    });
+  });
+  const manualOf = (date) => S.segs.some(s => s.source === 'manual' && s.date === date && !s.void);
+
+  let cells = '';
+  for (let i=0;i<lead;i++) cells += `<div class="cday out"></div>`;
+  for (let d=1; d<=dim; d++){
+    const date = `${y}-${pad2(m+1)}-${pad2(d)}`;
+    const future = date > DEMO_TODAY;
+    const list = (tasks[date] || []).slice().sort((a,b) => {
+      const am = a.v >= a.p.targetMin ? 1 : 0, bm = b.v >= b.p.targetMin ? 1 : 0;
+      return am - bm;   // 未达标在前，落后更值得被看见
+    });
+    const shown = list.slice(0, 3);              // 每格最多 3 条，超出折叠为 +N
+    const more = list.length - shown.length;
+    const bars = shown.map(t => {
+      const ratio = Math.max(8, Math.min(100, Math.round(t.v / t.p.targetMin * 100)));
+      const cls = t.v >= t.p.targetMin ? 'g' : 'y';
+      return `<div class="tb"><em>${shortName(t.p.name)}</em><span class="tr"><i class="${cls}" style="width:${ratio}%"></i></span></div>`;
+    }).join('');
+    const today = date===DEMO_TODAY ? 'today' : '';
+    cells += `<div class="cday ${future?'future':''} ${today}" onclick="openDayAll('${date}')">
+      <div class="dtop"><span class="dn">${d}${manualOf(date)?'<i class="man"></i>':''}</span>${more>0?`<span class="pn">+${more}</span>`:''}</div>
+      <div class="bars">${bars}</div>
+    </div>`;
+  }
+
+  return nav('汇总')
+    + `<div class="calhead">
+        <div class="calnav" onclick="shiftMonth(-1)">‹</div>
+        <div class="m">${y}年${m+1}月</div>
+        <div class="row" style="gap:10px"><div class="tiny" onclick="goToday()" style="cursor:pointer">本月</div><div class="calnav" onclick="shiftMonth(1)">›</div></div>
+      </div>
+    <div class="mg" style="padding:0 14px 6px;gap:6px">
+      <span style="text-align:center;font-size:10px;color:#aaa">一</span><span style="text-align:center;font-size:10px;color:#aaa">二</span>
+      <span style="text-align:center;font-size:10px;color:#aaa">三</span><span style="text-align:center;font-size:10px;color:#aaa">四</span>
+      <span style="text-align:center;font-size:10px;color:#aaa">五</span><span style="text-align:center;font-size:10px;color:#aaa">六</span>
+      <span style="text-align:center;font-size:10px;color:#aaa">日</span>
+    </div>
+    <div class="calgrid">${cells}</div>
+    <div class="callegend">
+      <span><i class="lg g"></i>达标</span>
+      <span><i class="lg y"></i>未达标</span>
+      <span class="q" onclick="calHelp()">?</span>
+      <span class="hint">点击日期查看当天详情</span>
+    </div>`;
+}
+/* 次要解释（补录 / 区间外 / 底色语义）收进一次性气泡，不常驻 */
+function calHelp(){
+  overlay(`<div class="mask" onclick="if(event.target===this)closeOverlay()">
+    <div class="sheet"><div class="hd">日历说明</div>
+      <div class="sheetbody" style="background:#fff;padding:16px 18px;font-size:13px;line-height:1.9;color:#555">
+        每条 = 一个任务：条长是该任务当日的完成度，颜色是达标（绿）/ 未达标（黄）。<br/>
+        日期数字右侧的<b>蓝点</b>表示当天含手动补录。<br/>
+        <b>透明格</b>表示该日在计划区间之外；<b>描边格</b>是今天。<br/>
+        格子底色不表示"这一天是否达标"，避免与任务级颜色冲突；要看整体，点日期查看当天任务清单。
+      </div>
+      <div class="it cancel" onclick="closeOverlay()">我知道了</div>
+    </div></div>`);
+}
+function shiftMonth(d){
+  let m = S.calYM.m + d, y = S.calYM.y;
+  if (m < 0){ m = 11; y--; } if (m > 11){ m = 0; y++; }
+  S.calYM = { y, m }; save(); render();
+}
+function goToday(){ S.calYM = { y:2027, m:1 }; save(); render(); }
+
+/* ---------- S4 我的 ---------- */
+function renderMe(){
+  return nav('我的', { back:true })
+   + `<div class="me-head">
+      <div class="avatar">👤</div>
+      <div class="grow">
+        <div style="font-size:16px;font-weight:600">未设置昵称</div>
+        <div class="tiny" style="margin-top:3px">点击设置昵称（最多 10 个字）</div>
+      </div>
+      <div class="tiny">›</div>
+    </div>
+    <div class="menu">
+      <div class="mi" onclick="exportAll()"><span>导出记录（分享文件）</span><span class="v">JSON ›</span></div>
+      <div class="mi" onclick="toast('导入记录为后续版本功能')"><span>导入记录</span><span class="v">›</span></div>
+    </div>
+    <div class="menu">
+      <div class="mi" onclick="showLegal('agreement')"><span>用户协议</span><span class="v">›</span></div>
+      <div class="mi" onclick="showLegal('privacy')"><span>隐私政策</span><span class="v">›</span></div>
+      <div class="mi" onclick="toast('正在打开客服会话…')"><span>联系我们</span><span class="v">›</span></div>
+    </div>
+    <div class="menu">
+      <div class="mi" onclick="clearAllPlans()"><span>查看空态（清空全部计划）</span><span class="v">演示 ›</span></div>
+      <div class="mi" onclick="resetDemo()"><span>重置演示数据</span><span class="v">演示 ›</span></div>
+    </div>
+    <div class="tiny" style="text-align:center;padding:18px">当前版本 v1.0.0</div>`;
+}
+function clearAllPlans(){
+  const keep = S.plans.map(p => p.deletedAt);
+  S.plans.forEach(p => p.deletedAt = Date.now());
+  S.session = null; save(); go('list');
+  snack('已清空全部计划', '撤销', () => { S.plans.forEach((p,i)=>p.deletedAt=keep[i]); save(); render(); });
+}
+function resetDemo(){
+  S = seed(); save(); formState = null;
+  go('list'); toast('演示数据已重置');
+}
+
+/* ============ 覆盖层 ============ */
+function overlay(html){ $('#app').insertAdjacentHTML('beforeend', html); }
+function closeOverlay(){ const m = document.querySelectorAll('.mask'); if (m.length) m[m.length-1].remove(); }
+
+function openActionSheet(planId){
+  const p = S.plans.find(x=>x.id===planId);
+  overlay(`<div class="mask" onclick="if(event.target===this)closeOverlay()">
+    <div class="sheet">
+      <div class="hd">${escapeHtml(p.name)}</div>
+      <div class="it" onclick="togglePin('${planId}')">${p.pinnedAt?'取消置顶':'置顶'}</div>
+      <div class="it danger" onclick="askDelete('${planId}')">删除</div>
+      <div class="it cancel" onclick="closeOverlay()">取消</div>
+    </div></div>`);
+}
+function togglePin(id){
+  const p = S.plans.find(x=>x.id===id);
+  p.pinnedAt = p.pinnedAt ? null : Date.now(); save(); closeOverlay(); render();
+}
+function askDelete(id){
+  closeOverlay();
+  const p = S.plans.find(x=>x.id===id);
+  const n = activeDays(p);
+  overlay(`<div class="mask center" onclick="if(event.target===this)closeOverlay()">
+    <div class="dialog">
+      <div class="dt">删除「${escapeHtml(p.name)}」？</div>
+      <div class="db">该计划的 ${n} 天计时记录将一并删除，删除后 30 天内可联系客服找回。</div>
+      <div class="df"><div onclick="closeOverlay()">取消</div><div class="danger" onclick="doDelete('${id}')">删除</div></div>
+    </div></div>`);
+}
+function doDelete(id){
+  const p = S.plans.find(x=>x.id===id);
+  p.deletedAt = Date.now(); save();
+  closeOverlay();
+  if (view.name === 'detail') go('list'); else render();
+  snack(`已删除「${p.name}」`, '撤销', () => { p.deletedAt = null; save(); render(); });
+}
+function snack(text, action, cb){
+  const el = document.createElement('div');
+  el.className = 'snack';
+  el.innerHTML = `<span>${text}</span><b>${action}</b>`;
+  $('#app').appendChild(el);
+  const t = setTimeout(()=>el.remove(), 5000);
+  el.querySelector('b').onclick = () => { clearTimeout(t); el.remove(); cb(); };
+}
+function toast(text){
+  const el = document.createElement('div');
+  el.className = 'toastbar'; el.style.top = 'auto'; el.style.bottom = '100px';
+  el.textContent = text; $('#app').appendChild(el);
+  setTimeout(()=>el.remove(), 2200);
+}
+
+/* 更多菜单 */
+function openMore(id){
+  overlay(`<div class="mask" onclick="if(event.target===this)closeOverlay()">
+    <div class="sheet">
+      <div class="hd">${escapeHtml(S.plans.find(p=>p.id===id).name)}</div>
+      <div class="it" onclick="closeOverlay();go('form',{editId:'${id}'})">改名 / 编辑</div>
+      <div class="it" onclick="closeOverlay();exportOne('${id}')">导出记录</div>
+      <div class="it danger" onclick="closeOverlay();askDelete('${id}')">删除计划</div>
+      <div class="it cancel" onclick="closeOverlay()">取消</div>
+    </div></div>`);
+}
+
+/* 日详情（记录面板） */
+function openDay(planId, date){
+  const p = S.plans.find(x=>x.id===planId);
+  const segs = S.segs.filter(s=>s.planId===planId && s.date===date);
+  const inRange = date >= p.start && date <= p.end;
+  const body = segs.length
+    ? segs.map(s=>`<div class="mi"><span>${s.source==='manual'?'补录':'计时'} · ${minLabel(s.min)}</span><span class="v">${s.reason==='midnight_split'?'跨天拆分':(s.source==='manual'?'手动':'计时')}</span></div>`).join('')
+    : `<div style="padding:24px;text-align:center;color:#999">当日无记录</div>`;
+  overlay(`<div class="mask" onclick="if(event.target===this)closeOverlay()">
+    <div class="sheet"><div class="hd">${date}${inRange?'':' · 不在计划区间（不计入完成度）'}</div>
+      <div class="sheetbody">${body}</div>
+      <div class="it" onclick="closeOverlay();openManual('${planId}','${date}')">补录到这一天</div>
+      <div class="it cancel" onclick="closeOverlay()">取消</div>
+    </div></div>`);
+}
+function openDayAll(date){
+  const rows = S.plans.filter(p=>!p.deletedAt).map(p=>{
+    const v = dayMap(p)[date] || 0;
+    if (!v) return '';
+    const met = v >= p.targetMin;
+    return `<div class="mi" onclick="closeOverlay();go('detail',{planId:'${p.id}'})">
+      <span>${escapeHtml(p.name)}</span><span class="v">${minLabel(v)} · ${met?'达标':'未达标'} ›</span></div>`;
+  }).join('');
+  overlay(`<div class="mask" onclick="if(event.target===this)closeOverlay()">
+    <div class="sheet"><div class="hd">${date}</div>
+      <div class="sheetbody">${rows || '<div style="padding:24px;text-align:center;color:#999">当日无记录</div>'}</div>
+      <div class="it cancel" onclick="closeOverlay()">关闭</div>
+    </div></div>`);
+}
+
+/* 补录 */
+function openManual(planId, presetDate){
+  const p = S.plans.find(x=>x.id===planId);
+  const opts = [];
+  for (let d=0; d<Math.min(30, planDays(p)); d++){
+    const date = addDays(DEMO_TODAY, -d);
+    if (date < p.start) break;
+    opts.push(`<option value="${date}" ${(presetDate===date||(!presetDate&&d===0))?'selected':''}>${date}</option>`);
+  }
+  overlay(`<div class="mask center" onclick="if(event.target===this)closeOverlay()">
+    <div class="dialog" style="width:300px">
+      <div class="dt">手动补录</div>
+      <div class="db" style="text-align:left;padding-bottom:6px">记录会标记为「补录」，在详情、记录面板与日历上可辨识。</div>
+      <div class="picker">
+        <select id="mdate">${opts.join('')}</select>
+        <div class="withunit"><input id="mmin" type="number" min="1" max="720" value="20" oninput="minsPreview()" /><span>分钟</span></div>
+      </div>
+      <div class="mpreview" id="mprev">= 20 分钟</div>
+      <div class="dact">
+        <span class="cancel" onclick="closeOverlay()">取消</span>
+        <button class="btn sec" onclick="saveManual('${planId}')">✓ 保存补录</button>
+      </div>
+    </div></div>`);
+}
+/* 时长文案：永远带单位，不出现裸数字 */
+function minLabel(n){
+  n = Math.max(0, Math.round(Number(n) || 0));
+  if (!n) return '0 分钟';
+  const h = Math.floor(n / 60), m = n % 60;
+  if (!h) return m + ' 分钟';
+  return m ? h + ' 小时 ' + m + ' 分钟' : h + ' 小时';
+}
+function minsPreview(){
+  const el = $('#mprev'); if (!el) return;
+  const v = parseInt($('#mmin').value, 10);
+  el.textContent = (v > 0 && v <= 720) ? '= ' + minLabel(v) : '请输入 1–720 分钟';
+}
+function saveManual(planId){
+  const p = S.plans.find(x=>x.id===planId);
+  const date = $('#mdate').value;
+  const min = parseInt($('#mmin').value,10);
+  if (!min || min < 1 || min > 720){ toast('请输入 1–720 分钟'); return; }
+  if (date < p.start || date > p.end){ toast('该日期不在计划区间'); return; }
+  S.segs.push({ id: uid(), planId, date, min, source:'manual', reason:'user_end', startTs:null, endTs:null });
+  save(); closeOverlay(); render(); toast('已补录 ' + date + ' · ' + minLabel(min));
+}
+
+/* 合规文本 */
+function showLegal(type){
+  const t = type === 'agreement'
+    ? `<h4>一、服务说明</h4><p>本小程序提供计划创建、计时记录与学习汇总功能。用户应自行判断计划目标是否合理，本产品不对学习结果作出承诺。</p>
+       <h4>二、账号与数据</h4><p>当前版本使用设备本地存储与云端备份，不提供跨账号同步。删除计划后 30 天内可申请找回。</p>
+       <h4>三、用户行为</h4><p>用户不得利用本产品进行任何违法活动，不得通过修改系统时间等方式伪造记录。</p>
+       <h4>四、免责</h4><p>因设备故障、系统限制（含小程序后台挂起）导致的数据异常，我们会尽力恢复但不承担连带责任。</p>`
+    : `<h4>一、我们收集什么</h4><p>昵称与头像（仅在你主动点击设置时获取）、计划名称与目标、计时片段的时间戳与归属日期、设备型号与操作系统版本。</p>
+       <h4>二、用途</h4><p>用于展示你的计划进度、生成记录与日历、排查异常与改进产品。</p>
+       <h4>三、存储与共享</h4><p>数据存储于设备本地及云端备份；除法律法规要求外，不向第三方共享。</p>
+       <h4>四、你的权利</h4><p>你可以随时导出全部记录，或删除任意计划与其关联记录。删除后 30 天内可申请找回。</p>
+       <h4>五、联系我们</h4><p>如对隐私有疑问，可通过「联系我们」发起客服会话。</p>`;
+  overlay(`<div class="mask" onclick="if(event.target===this)closeOverlay()">
+    <div class="sheet"><div class="hd">${type==='agreement'?'用户协议':'隐私政策'}</div>
+      <div class="legal">${t}</div>
+      <div class="it cancel" onclick="closeOverlay()">我知道了</div>
+    </div></div>`);
+}
+
+/* ============ S7 计时 ============ */
+function openTimer(planId){
+  const p = S.plans.find(x=>x.id===planId);
+  if (S.session && S.session.planId !== planId){ toast('请先结束正在进行的计时'); return; }
+  if (!S.session){
+    S.session = { planId, state:'idle', accruedSec:0, startedAt:null }; save();
+  }
+  go('timer', { planId });
+  renderTimer();
+}
+function renderTimer(){
+  const p = S.plans.find(x=>x.id===view.planId);
+  const sm = S.session || { state:'idle', accruedSec:0, planId:p.id };
+  const sec = Math.floor(sessionSec());
+  const thisMin = Math.floor(sec/60);
+  const tm = todayMin(p) + thisMin;
+  const prog = Math.min(1, (thisMin||0) / p.targetMin);
+  const reached = tm >= p.targetMin;
+
+  const R = 104, C = 2*Math.PI*R;
+  const dash = C * (prog > 0 ? prog : 0);
+  const stt = sm.state === 'running' ? 'running' : (sm.state === 'paused' ? 'paused' : 'idle');
+
+  const ops = stt === 'idle'
+    ? `<button class="btn main" onclick="startSession()">开始</button>
+       <div class="demo-links"><span onclick="openManual('${p.id}')">手动补录</span></div>`
+    : `<div class="row2">
+         <button class="btn main" onclick="${stt==='running'?'pauseSession()':'resumeSession()'}">${stt==='running'?'暂停':'继续'}</button>
+         <button class="btn ghost" style="flex:0 0 40%" onclick="endSession()">结束</button>
+       </div>
+       <div class="demo-links">
+         <span onclick="simulateMidnight()">模拟跨天</span>
+         <span onclick="toggleSpeed()">演示加速 ${S.speed>1?'×1':'×60'}</span>
+       </div>`;
+
+  $('#screen').innerHTML = `<div class="timer">
+    <div class="navbar" style="position:relative">
+      <div class="back" onclick="exitTimer()">‹</div>
+      <div class="title">${escapeHtml(p.name)}</div>
+      <div style="width:96px"></div>
+    </div>
+    <div class="tv-head">
+      <div class="goal">每日目标 ${hLabel(p.targetMin)}</div>
+      <div class="acc">今日已累计 ${mmss(tm*60)}</div>
+    </div>
+    <div class="ringwrap">
+      <div class="ring">
+        <svg viewBox="0 0 236 236">
+          <circle cx="118" cy="118" r="${R}" fill="none" stroke="#efefef" stroke-width="10"/>
+          <circle cx="118" cy="118" r="${R}" fill="none" stroke="${reached?'#07c160':'#191919'}" stroke-width="10"
+            stroke-linecap="round" stroke-dasharray="${dash} ${C-dash}"
+            transform="rotate(-90 118 118)" style="transition:stroke-dasharray .3s"/>
+        </svg>
+        <div class="inner">
+          <div class="t" id="tclock">${mmss(sec)}</div>
+          <div class="st">${reached?'已达成今日目标':stt==='running'?'计时中':'已暂停'}</div>
+        </div>
+      </div>
+    </div>
+    <div class="ops">${ops}</div>
+  </div>`;
+  $('#tabbar').innerHTML = '';
+}
+function renderTimerOnly(){
+  const p = S.plans.find(x=>x.id===view.planId);
+  if (!p || !S.session) return;
+  const el = $('#tclock'); if (!el) return;
+  const sec = Math.floor(sessionSec());
+  el.textContent = mmss(sec);
+  const tm = todayMin(p) + Math.floor(sec/60);
+  const acc = document.querySelector('.timer .acc');
+  if (acc) acc.textContent = '今日已累计 ' + mmss(tm*60);
+  const reached = tm >= p.targetMin;
+  const st = document.querySelector('.ring .st');
+  if (st && reached) st.textContent = '已达成今日目标';
+  const ring = document.querySelector('.ring svg circle:nth-child(2)');
+  if (ring){
+    const prog = Math.min(1, (Math.floor(sec/60))/p.targetMin);
+    const C = 2*Math.PI*104;
+    ring.setAttribute('stroke-dasharray', `${C*prog} ${C-C*prog}`);
+    ring.setAttribute('stroke', reached ? '#07c160' : '#191919');
+  }
+}
+function startSession(){
+  S.session = { planId: view.planId, state:'running', accruedSec:0, startedAt: Date.now() };
+  save(); renderTimer();
+}
+function pauseSession(){
+  const sm = S.session;
+  sm.accruedSec = sm.accruedSec + Math.floor((Date.now()-sm.startedAt)/1000)*S.speed;
+  sm.startedAt = null; sm.state = 'paused';
+  save(); renderTimer();
+}
+function resumeSession(){
+  S.session.startedAt = Date.now(); S.session.state = 'running';
+  save(); renderTimer();
+}
+function endSession(){
+  const p = S.plans.find(x=>x.id===view.planId);
+  const totalSec = Math.floor(sessionSec());
+  const min = Math.floor(totalSec/60);
+  if (min > 0){
+    S.segs.push({ id: uid(), planId: p.id, date: DEMO_TODAY, min, source:'timer', reason:'user_end',
+      startTs: S.session.startedAt, endTs: Date.now() });
+  }
+  S.session = null; save(); renderTimer();
+  const tm = todayMin(p);
+  const met = tm >= p.targetMin;
+  overlay(`<div class="mask center">
+    <div class="dialog">
+      <div class="dt">本次计时结束</div>
+      <div class="db">本次 ${min} 分钟 · 今日 ${tm} 分钟 · ${met?'已达标 ✓':'距目标还差 '+(p.targetMin-tm)+' 分钟'}</div>
+      <div class="df"><div style="color:#333" onclick="closeOverlay();go('detail',{planId:'${p.id}',tab2:'record'})">完成</div></div>
+    </div></div>`);
+}
+function toggleSpeed(){
+  S.speed = S.speed > 1 ? 1 : 60;
+  save(); renderTimer(); toast(S.speed>1?'演示加速 ×60（仅用于演示）':'已恢复正常速度');
+}
+function simulateMidnight(){
+  const p = S.plans.find(x=>x.id===view.planId);
+  const yesterday = addDays(DEMO_TODAY, -1);
+  const min = 12;
+  S.segs.push({ id: uid(), planId:p.id, date:yesterday, min, source:'timer', reason:'midnight_split',
+    startTs:null, endTs:null });
+  if (S.session && S.session.state === 'running') S.session.startedAt = Date.now();
+  save(); renderTimer();
+  const bar = document.createElement('div');
+  bar.className = 'toastbar';
+  bar.textContent = `已跨天：昨日 ${min} 分钟已计入，今天从 0 开始`;
+  $('#app').appendChild(bar);
+  setTimeout(()=>bar.remove(), 3000);
+}
+function exitTimer(){
+  const hasPending = S.session && (S.session.state === 'running'
+    || (S.session.state === 'paused' && sessionSec() > 0));
+  if (hasPending){
+    overlay(`<div class="mask" onclick="if(event.target===this)closeOverlay()">
+      <div class="sheet">
+        <div class="hd">${S.session.state==='running'?'计时正在进行':'本次计时尚未结束'}</div>
+        <div class="it" onclick="closeOverlay()">继续计时</div>
+        <div class="it" onclick="closeOverlay();endSession()">结束并计入今日</div>
+        <div class="it danger" onclick="closeOverlay();abandon()">放弃本次（不计入）</div>
+        <div class="it cancel" onclick="closeOverlay()">取消</div>
+      </div></div>`);
+    return;
+  }
+  S.session = null; save();
+  go('detail', { planId: view.planId || 'p1' });
+}
+function abandon(){ S.session = null; save(); go('detail', { planId: view.planId || 'p1' }); }
+
+/* 返回 */
+function goBack(){
+  if (view.name === 'detail') go('list');
+  else if (view.name === 'form') go(view.editId ? 'detail' : 'list', {planId: view.editId});
+  else go('list');
+}
+
+/* 导出 */
+function exportAll(){
+  const data = { plans: S.plans, segments: S.segs.map(s => ({
+    plan_id:s.planId, local_date:s.date, duration_min:s.min, source:s.source, close_reason:s.reason })) };
+  download('plan-timer-backup-' + DEMO_TODAY + '.json', JSON.stringify(data, null, 2));
+  toast('导出记录（分享文件）：已生成 JSON 文件');
+}
+function exportOne(id){
+  const p = S.plans.find(x=>x.id===id);
+  const lines = S.segs.filter(s=>s.planId===id).map(s => JSON.stringify({
+    plan_id:s.planId, local_date:s.date, duration_min:s.min, source:s.source, close_reason:s.reason }));
+  download(`${p.name}-segments.jsonl`, lines.join('\n'));
+  toast('已导出记录');
+}
+function download(name, text){
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ============ 绑定事件（长按等） ============ */
+function bindCommon(){
+  document.querySelectorAll('.plan-card').forEach(card => {
+    let t = null, longPressed = false, sx = 0, sy = 0;
+    const id = card.dataset.id;
+    const cancel = () => { if (t){ clearTimeout(t); t = null; } };
+    card.addEventListener('pointerdown', (e) => {
+      longPressed = false; sx = e.clientX; sy = e.clientY;
+      t = setTimeout(() => { t = null; longPressed = true; openActionSheet(id); }, 550);
+    });
+    card.addEventListener('pointerup', cancel);
+    card.addEventListener('pointerleave', cancel);
+    card.addEventListener('pointermove', (e) => {
+      if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) cancel();
+    });
+    card.addEventListener('click', (e) => {
+      if (longPressed){ longPressed = false; return; }
+      if (e.target.closest('.play')) return;
+      go('detail', { planId: id });
+    });
+    card.addEventListener('contextmenu', (e)=>e.preventDefault());
+  });
+  const clockEl = $('#clock');
+  if (clockEl){ const d = new Date(); clockEl.textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+}
+
+/* 页面加载 */
+function boot(){
+  if (S.session && !S.plans.some(p => p.id === S.session.planId)) S.session = null;
+  if (S.session && S.session.state === 'running' && !S.session.startedAt) S.session = null;
+  save();
+  render();
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+boot();
+window.addEventListener('beforeunload', save);
+
+/* 每 500ms 刷新计时（即使不在计时页也保持数据） */
+setInterval(()=>{ if (S.session && S.session.state==='running' && view.name==='timer') renderTimerOnly(); }, 500);
+</script>
+</body>
+</html>
