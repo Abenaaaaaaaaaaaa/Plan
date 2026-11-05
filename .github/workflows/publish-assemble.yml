@@ -1,0 +1,62 @@
+name: publish-assemble
+
+on:
+  push:
+    paths:
+      - parts/READY
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble index.html
+        run: |
+          first=""
+          for f in parts/index.part*.txt; do
+            if [ -n "$first" ]; then printf '\n' >> index.html; fi
+            first=1
+            cat "$f" >> index.html
+          done
+          echo "index bytes: $(wc -c < index.html)"
+          echo "index sha256: $(sha256sum index.html | cut -d' ' -f1)"
+
+      - name: Assemble PRD
+        run: |
+          mkdir -p docs
+          first=""
+          for f in parts/prd.part*.txt; do
+            if [ -n "$first" ]; then printf '\n' >> docs/PRD-计划计时器.md; fi
+            first=1
+            cat "$f" >> docs/PRD-计划计时器.md
+          done
+          echo "prd bytes: $(wc -c < docs/PRD-计划计时器.md)"
+          echo "prd sha256: $(sha256sum docs/PRD-计划计时器.md | cut -d' ' -f1)"
+          echo "head:"; head -5 docs/PRD-计划计时器.md
+
+      - name: Commit and clean up
+        run: |
+          rm -rf parts PROBE.txt .github/workflows/probe.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: publish prototype index.html and PRD"
+          git push
+
+      - name: Enable GitHub Pages
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          code=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/$REPO/pages \
+            -d '{"source":{"branch":"main","path":"/"}}')
+          echo "pages POST status: $code"
+          cat /tmp/resp.json
