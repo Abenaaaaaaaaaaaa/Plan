@@ -17,12 +17,12 @@
     font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif;
     color:var(--ink);font-size:14px;overflow:hidden;
   }
+  /* 全屏自适应：任何宽度下铺满可视区，宽屏时以 430px 为上限居中 */
   .app{
-    width:375px;height:812px;max-height:100vh;background:var(--bg);position:relative;
+    width:100%;max-width:430px;height:100vh;height:100dvh;max-height:none;background:var(--bg);position:relative;
     overflow:hidden;display:flex;flex-direction:column;
-    box-shadow:0 12px 40px rgba(0,0,0,.25);border-radius:14px;
+    box-shadow:none;border-radius:0;
   }
-  @media (max-width:420px){ .app{border-radius:0;box-shadow:none;height:100dvh;max-height:none;width:100%} }
 
   /* 状态栏 + 胶囊 */
   .statusbar{height:44px;flex:0 0 44px;display:flex;align-items:center;justify-content:space-between;
