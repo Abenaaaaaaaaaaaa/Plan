@@ -378,6 +378,54 @@
   .mpreview{font-size:12px}
   .dact .cancel{font-size:15px}
   .tag{font-size:11px}
+
+  /* ===== 详情页：概况 ===== */
+  .hero{padding:14px 16px 4px}
+  .hero-top{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+  .pct-wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+  .pct-big{display:flex;align-items:baseline;font-size:46px;font-weight:700;line-height:1;
+    letter-spacing:0;font-variant-numeric:tabular-nums}
+  .pct-big .u{font-size:18px;font-weight:600;margin-left:4px;color:#444}
+  .pct-side{text-align:right;font-size:13px;color:#9a9a9a;line-height:1.55;padding-bottom:4px}
+  .pct-side b{display:block;font-size:18px;color:#222;font-weight:600;margin-bottom:3px}
+  .hero-bar{height:8px;border-radius:4px;background:#ececec;margin-top:16px;overflow:hidden}
+  .hero-bar i{display:block;height:100%;background:var(--ink);border-radius:4px;transition:width .25s}
+  .sched{display:grid;grid-template-columns:repeat(3,1fr);background:#fff;border-radius:14px;
+    margin:14px 16px 0;padding:14px 6px}
+  .sched .si{text-align:center;position:relative}
+  .sched .si+.si::before{content:'';position:absolute;left:0;top:3px;bottom:3px;width:1px;background:#f0f0f0}
+  .sched .k{display:block;font-size:12px;color:#9a9a9a;margin-bottom:6px}
+  .sched b{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+  .sched .gap b{color:#c46a00}
+  .todaybar{margin:12px 16px 0;padding:14px 16px;border-radius:14px;justify-content:flex-start}
+  .todaybar .t-k{font-size:13px;color:#9a9a9a;margin-right:10px}
+  .todaybar .t-v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .todaybar .t-u{font-size:14px;color:#666;margin-left:4px}
+  .grid2{gap:12px;margin-top:12px}
+  .kpi{padding:14px;min-height:88px}
+  .kpi .k{font-size:13px;color:#9a9a9a;margin-bottom:8px}
+  .kpi .v{font-size:22px}
+  .kpi .v small{font-size:13px;margin-left:5px}
+  .kpi .rline{font-size:14px;margin-top:5px}
+  .kpi .rline .rl{color:#9a9a9a}
+  .rtip{font-size:12px;color:#9a9a9a;margin-top:6px}
+  .note{padding:12px 16px 4px;font-size:12px;color:#9a9a9a}
+
+  /* ===== 详情页：执行记录 ===== */
+  .rlegend{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 2px}
+  .rlegend .lg{display:flex;align-items:center;gap:5px;background:#fff;border-radius:20px;
+    padding:5px 11px;font-size:12px;color:#666}
+  .rlegend .lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .rtools{display:flex;justify-content:space-between;align-items:center;padding:10px 16px 0}
+  .rtools .hint{font-size:12px;color:#9a9a9a}
+  .mcard{background:#fff;border-radius:14px;margin:12px 16px 0;padding:14px 12px}
+  .mcard .mh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;padding:0 2px}
+  .mcard .mh h4{margin:0;font-size:15px;font-weight:600;color:#222}
+  .mcard .mh span{font-size:12px;color:#9a9a9a;font-variant-numeric:tabular-nums}
+  .mcard .wk{font-size:11px;color:#b5b5b5;margin-bottom:6px}
+  .mcard .mg{gap:5px}
+  .mcard .cell{border-radius:9px;font-size:12px;font-weight:600}
+  .mcard .cell .d{font-size:10px;top:4px;left:5px;opacity:.7}
 </style>
 </head>
 <body>
@@ -801,42 +849,41 @@ function renderDetail(){
   const running = S.session && S.session.planId === p.id;
 
   const hero = `<div class="hero">
-    <div class="row" style="gap:8px;margin-bottom:10px">
+    <div class="hero-top">
       <span class="badge ${badge[0]}">${badge[1]}</span>
       ${p.pinnedAt?'<span class="pill-top">置顶</span>':''}
     </div>
-    <div class="bigrow">
-      <div class="big">${c.toFixed(1)}<span>%</span></div>
-      <div class="sumline">累计 <b>${hLabel(acc)}</b> / 目标 ${hLabel(tt)}${over?'<br/>已超额 '+hLabel(acc-tt):''}</div>
+    <div class="pct-wrap">
+      <div class="pct-big">${c.toFixed(1)}<span class="u">%</span></div>
+      <div class="pct-side"><b>累计 ${hLabel(acc)}</b>目标 ${hLabel(tt)}${over?'<br/>已超额 '+hLabel(acc-tt):''}</div>
     </div>
-    <div class="bar"><i style="width:${Math.min(100,c)}%"></i></div>
-    ${st==='进行中'?`<div class="aux">
-        <span>应完成 <b>${hLabel(due)}</b></span>
-        <span>/</span>
-        <span>已投入 <b>${hLabel(acc)}</b></span>
-        <span>/</span>
-        <span class="${gap?'gap':''}">${gap?'落后 <b>'+hLabel(gap)+'</b>':'已跟上应完成进度'}</span>
-    </div>`:''}
-    ${p.changedAt?`<div class="tiny" style="margin-top:8px">目标已于 ${p.changedAt} 调整（第 ${p.targetVersion} 版）</div>`:''}
+    <div class="hero-bar"><i style="width:${Math.min(100,c)}%"></i></div>
+    ${p.changedAt?`<div class="tiny" style="margin-top:10px">目标已于 ${p.changedAt} 调整（第 ${p.targetVersion} 版）</div>`:''}
   </div>`;
 
+  /* 进度对照：应完成 / 已投入 / 差距 */
+  const sched = st==='进行中' ? `<div class="sched">
+      <div class="si"><span class="k">应完成</span><b>${hLabel(due)}</b></div>
+      <div class="si"><span class="k">已投入</span><b>${hLabel(acc)}</b></div>
+      <div class="si ${gap?'gap':''}"><span class="k">${gap?'落后':'进度'}</span><b>${gap?hLabel(gap):'已跟上'}</b></div>
+    </div>` : '';
+
   /* 今日条：纯展示，右侧不再放任何按钮（计时入口只保留底栏一个） */
-  let tbText = `今日 ${tm} / ${p.targetMin} 分钟`;
-  if (st === '未开始') tbText = `距开始还有 ${Math.max(0, diffDays(p.start, DEMO_TODAY))} 天 · 目标 ${hLabel(tt)}`;
-  else if (st === '已结束') tbText = `已结束 · 共 ${planDays(p)} 天`;
-  else if (st === '已过期') tbText = `已过期 · 差 ${hLabel(Math.max(0, tt - acc))} 未完成`;
-  const todaybar = `<div class="todaybar">
-      <div style="font-size:14px">${tbText}</div>
-    </div>`;
+  let todayInner;
+  if (st === '未开始') todayInner = `<span class="t-k">未开始</span><span class="t-u">距开始还有 ${Math.max(0, diffDays(p.start, DEMO_TODAY))} 天 · 目标 ${hLabel(tt)}</span>`;
+  else if (st === '已结束') todayInner = `<span class="t-k">已结束</span><span class="t-u">共 ${planDays(p)} 天 · 累计 ${hLabel(acc)}</span>`;
+  else if (st === '已过期') todayInner = `<span class="t-k">已过期</span><span class="t-u">差 ${hLabel(Math.max(0, tt - acc))} 未完成</span>`;
+  else todayInner = `<span class="t-k">今日</span><span class="t-v">${tm}</span><span class="t-u">/ ${p.targetMin} 分钟</span>`;
+  const todaybar = `<div class="todaybar">${todayInner}</div>`;
 
   const kpis = `<div class="grid2">
-      <div class="kpi"><div class="k">每日目标 <span style="color:#576b95">✎</span></div><div class="v">${hLabel(p.targetMin)}<small>${p.targetMin} 分钟</small></div></div>
-      <div class="kpi"><div class="k">计划区间 <span style="color:#576b95">✎</span></div>
+      <div class="kpi"><div class="k">每日目标</div><div class="v">${hLabel(p.targetMin)}<small>${p.targetMin} 分钟</small></div></div>
+      <div class="kpi"><div class="k">计划区间</div>
         <div class="rline"><span class="rl">开始</span><span class="rv">${p.start.replace(/-/g,'.')}</span></div>
         <div class="rline"><span class="rl">结束</span><span class="rv">${p.end.replace(/-/g,'.')}</span></div>
-        <div class="tiny" style="margin-top:4px">共 ${planDays(p)} 天</div></div>
-      <div class="kpi"><div class="k">已执行</div><div class="v">${activeDays(p)}<small>天</small></div></div>
-      <div class="kpi"><div class="k">达标</div><div class="v">${metDays(p)}<small>天</small></div><div class="tiny" style="margin-top:4px">当日达到 ${p.targetMin} 分钟</div></div>
+        <div class="rtip">共 ${planDays(p)} 天</div></div>
+      <div class="kpi"><div class="k">已执行</div><div class="v">${activeDays(p)}<small>天</small></div><div class="rtip">有记录的天数</div></div>
+      <div class="kpi"><div class="k">达标</div><div class="v">${metDays(p)}<small>天</small></div><div class="rtip">每日 ≥ ${p.targetMin} 分钟</div></div>
     </div>`;
 
   /* 顶部分段 Tab：切换即整屏替换，不做"滚到第 4 块" */
@@ -846,8 +893,8 @@ function renderDetail(){
     </div>`;
 
   const overview = `<div style="padding-bottom:6px">
-      ${hero}${todaybar}${kpis}
-      <div class="tiny" style="padding:10px 16px 4px">共 ${planDays(p)} 天 · 目标总量 ${hLabel(tt)} · 统计窗口含首尾</div>
+      ${hero}${sched}${todaybar}${kpis}
+      <div class="note">共 ${planDays(p)} 天 · 目标总量 ${hLabel(tt)} · 统计窗口含首尾</div>
     </div>`;
   const body = view.tab2 === 'record' ? recordPanel(p) : overview;
 
@@ -887,21 +934,25 @@ function recordPanel(p){
     const first = new Date(mo.y, mo.m, 1);
     const dim = new Date(mo.y, mo.m+1, 0).getDate();
     const lead = (first.getDay() + 6) % 7; // 周一起始
-    let cells = '';
+    let cells = '', mMet = 0, mMin = 0;
     for (let i=0;i<lead;i++) cells += `<div class="cell out"></div>`;
     for (let d=1; d<=dim; d++){
       const date = `${mo.y}-${pad2(mo.m+1)}-${pad2(d)}`;
       const v = dm[date] || 0;
       let cls = 'none', txt = '';
       if (date < p.start || date > p.end) { cls = 'out'; }
-      else if (v >= p.targetMin) { cls = 'met'; txt = v + 'm'; }
-      else if (v > 0) { cls = 'part'; txt = v + 'm'; }
-      else { cls = 'none'; txt = ''; }
+      else {
+        if (v > 0) mMin += v;
+        if (v >= p.targetMin) { cls = 'met'; mMet += 1; txt = v + 'm'; }
+        else if (v > 0) { cls = 'part'; txt = v + 'm'; }
+        else { cls = 'none'; txt = ''; }
+      }
       const today = date === DEMO_TODAY ? 'today' : '';
       const man = hasManual(date) ? '<div class="man"></div>' : '';
       cells += `<div class="cell ${cls} ${today}" onclick="openDay('${p.id}','${date}')"><span class="d">${d}</span>${txt}${man}</div>`;
     }
-    return `<div class="month"><h4>${mo.y}年${mo.m+1}月</h4>
+    return `<div class="mcard">
+      <div class="mh"><h4>${mo.y}年${mo.m+1}月</h4><span>达标 ${mMet} 天 · ${hLabel(mMin)}</span></div>
       <div class="wk"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
       <div class="mg">${cells}</div></div>`;
   };
@@ -913,18 +964,18 @@ function recordPanel(p){
       <p>去开始第一次计时</p>
     </div>`;
   }
-  return `<div class="legend">
-      <span><i style="background:var(--green)"></i>达标</span>
-      <span><i style="background:var(--yellow)"></i>有记录未达标</span>
-      <span><i style="background:#f1f1f1"></i>无记录</span>
-      <span><i style="background:#576b95;border-radius:50%"></i>含补录</span>
+  return `<div class="rlegend">
+      <span class="lg"><i style="background:var(--green)"></i>达标</span>
+      <span class="lg"><i style="background:var(--yellow)"></i>有记录未达标</span>
+      <span class="lg"><i style="background:#f1f1f1"></i>无记录</span>
+      <span class="lg"><i style="background:#576b95;border-radius:50%"></i>含补录</span>
     </div>
-    <div class="row between" style="padding:0 16px 4px">
-      <span class="tiny">区间外显示为空</span>
+    <div class="rtools">
+      <span class="hint">区间外显示为空</span>
       <span class="tag" onclick="openManual('${p.id}')">＋ 手动补录</span>
     </div>
     ${months.map(block).join('')}
-    <div style="height:10px"></div>`;
+    <div style="height:12px"></div>`;
 }
 
 /* ---------- S8 日历 ---------- */
