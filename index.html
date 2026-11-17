@@ -311,6 +311,73 @@
   .dact{display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:10px 16px 14px;border-top:.5px solid #eee}
   .dact .cancel{font-size:14px;color:#666;cursor:pointer;padding:8px 2px}
   .tag{font-size:10px;color:var(--blue);border:1px solid #dfe5f2;background:#f2f5fb;border-radius:6px;padding:1px 5px}
+
+  /* ===== 移动端字号基线：正文 15 / 辅助 13 / 说明 12（对应 750 设计稿 ÷2） ===== */
+  body{font-size:15px}
+  .navbar{height:48px;flex:0 0 48px}
+  .navbar .title{font-size:17px}
+  .navbar .right{font-size:14px}
+  .navbtn{height:30px;font-size:16px}
+  .tiny{font-size:12px}
+  .pc-name{font-size:17px;max-width:170px}
+  .badge{font-size:11px;line-height:17px;padding:2px 8px}
+  .pill-top{font-size:11px}
+  .pct{font-size:14px}
+  .pc-line{font-size:13px}
+  .play{font-size:13px}
+  .swipe-actions .sa{font-size:13px}
+  .tabbar{min-height:58px}
+  .tabbar .tab{font-size:12px}
+  .field .fl{font-size:14px}
+  .field .fv{font-size:13px}
+  .chip{font-size:14px;padding:8px 15px}
+  .dt input[type=date]{font-size:14px;padding:10px}
+  .err{font-size:13px}
+  .btn{font-size:16px;height:50px}
+  .btn.sm{font-size:14px;height:36px}
+  .btn.sec{font-size:14px;height:40px}
+  .hero .sumline,.hero .subline,.aux{font-size:13px}
+  .kpi .k{font-size:12px}
+  .kpi .v{font-size:18px}
+  .kpi .v small{font-size:12px}
+  .kpi .rline{font-size:13px}
+  .seg .s{font-size:14px}
+  .seg.topseg .s{font-size:15px;padding:12px 0}
+  .legend{font-size:12px}
+  .month h4{font-size:14px}
+  .wk,.cell{font-size:11px}
+  .cell .d{font-size:10px}
+  .calmonth{font-size:19px}
+  .caltoday{font-size:13px}
+  .calweek span{font-size:13px}
+  .cday .dn{font-size:14px;line-height:19px;min-width:19px;height:19px}
+  .cday .dtop{height:19px}
+  .cday .pn{font-size:10px;line-height:19px}
+  .cday .tb{height:16px}
+  .cday .tb span{font-size:11px;line-height:16px}
+  .cst .k{font-size:11px}
+  .cst b{font-size:16px}
+  .callegend{font-size:12px}
+  .callegend .q{font-size:11px}
+  .mi{font-size:15px;padding:16px}
+  .mi .v{font-size:13px}
+  .sheet .hd{font-size:14px}
+  .sheet .it{font-size:17px}
+  .dialog .dt{font-size:17px}
+  .dialog .db{font-size:14px}
+  .dialog .df div{font-size:17px}
+  .snack{font-size:14px}
+  .toastbar{font-size:13px}
+  .demo-links{font-size:12px}
+  .empty h3{font-size:18px}
+  .empty p{font-size:14px}
+  .legal{font-size:13px}
+  .legal h4{font-size:14px}
+  .picker select,.picker input,.withunit input{font-size:15px}
+  .withunit span{font-size:13px}
+  .mpreview{font-size:12px}
+  .dact .cancel{font-size:15px}
+  .tag{font-size:11px}
 </style>
 </head>
 <body>
@@ -622,7 +689,7 @@ function cardHTML(p){
     </div>
     ${over?`<div class="tiny" style="margin-top:6px;color:#0a8f46">已超额 ${hLabel(accumulated(p)-targetTotal(p))}</div>`:''}
     <div class="pc-line"><span class="grow">${line3}</span></div>
-    <div class="pc-line" style="margin-top:4px;color:#a0a0a0;font-size:11px">${line4}</div>
+    <div class="pc-line" style="margin-top:4px;color:#a0a0a0;font-size:13px">${line4}</div>
     </div>
   </div>`;
 }
@@ -759,7 +826,7 @@ function renderDetail(){
   else if (st === '已结束') tbText = `已结束 · 共 ${planDays(p)} 天`;
   else if (st === '已过期') tbText = `已过期 · 差 ${hLabel(Math.max(0, tt - acc))} 未完成`;
   const todaybar = `<div class="todaybar">
-      <div style="font-size:13px">${tbText}</div>
+      <div style="font-size:14px">${tbText}</div>
     </div>`;
 
   const kpis = `<div class="grid2">
@@ -945,7 +1012,7 @@ function renderCalendar(){
 function calHelp(){
   overlay(`<div class="mask" onclick="if(event.target===this)closeOverlay()">
     <div class="sheet"><div class="hd">日历说明</div>
-      <div class="sheetbody" style="background:#fff;padding:16px 18px;font-size:13px;line-height:1.9;color:#555">
+      <div class="sheetbody" style="background:#fff;padding:16px 18px;font-size:14px;line-height:1.9;color:#555">
         每条 = 一个任务，条内文字是任务名缩写：绿色为达标，橙色为未达标。<br/>
         每日最多显示 3 条，其余收进右上角 +N；日期旁的<b>蓝点</b>表示当天含手动补录。<br/>
         <b>透明格</b>表示该日在计划区间之外；今天用黑底日期标出。<br/>
@@ -986,7 +1053,7 @@ function renderMe(){
    + `<div class="me-head">
       <div class="avatar">${ICON.user}</div>
       <div class="grow">
-        <div style="font-size:16px;font-weight:600">未设置昵称</div>
+        <div style="font-size:17px;font-weight:600">未设置昵称</div>
         <div class="tiny" style="margin-top:3px">点击设置昵称（最多 10 个字）</div>
       </div>
       <div class="tiny">›</div>
