@@ -175,43 +175,52 @@
   .cell.today{box-shadow:inset 0 0 0 2px #111}
 
   /* 日历 */
-  .calhead{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 10px}
-  .calhead .m{font-size:17px;font-weight:700}
-  .calnav{font-size:20px;color:#666;padding:6px 10px;cursor:pointer}
-  .caltoday{padding:4px 8px;border-radius:6px;cursor:pointer}
-  .caltoday:active{background:#ececec}
+  .calpage{display:flex;flex-direction:column;min-height:100%}
+  .calhead{position:relative;display:flex;align-items:center;height:48px;padding:0 10px}
+  .calmonth{position:absolute;left:0;right:0;text-align:center;font-size:18px;font-weight:700;pointer-events:none}
+  .calnav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:22px;line-height:1;color:#444;cursor:pointer}
+  .calnav:active{background:#ececec}
+  .calhead .right{margin-left:auto;display:flex;align-items:center;gap:2px;position:relative;z-index:1}
+  .caltoday{padding:6px 12px;border-radius:15px;background:#fff;border:.5px solid #e6e6e6;
+    font-size:12px;font-weight:500;color:#444;cursor:pointer}
+  .caltoday:active{background:#f1f1f1}
   @keyframes todayPulse{
     0%,100%{box-shadow:inset 0 0 0 2px #111}
     50%{box-shadow:inset 0 0 0 3px #111,0 0 0 4px rgba(17,17,17,.14)}
   }
   .cday.today.pulse{animation:todayPulse .7s ease 2}
-  .calpage{display:flex;flex-direction:column;min-height:100%}
-  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:0 14px}
-  .calpage .calgrid{flex:1}
-  /* 任务级色条：底色中性，颜色只属于任务条。375px 下 3 条不挤压日期数字：
-     行高 13→12、条行 9→8、行距 3→2 */
-  .cday{min-height:0;border-radius:9px;background:#fff;padding:3px;display:flex;
-    flex-direction:column;position:relative;cursor:pointer}
-  .cday .dtop{display:flex;justify-content:space-between;align-items:flex-start;height:12px;padding:0 1px}
-  .cday .dn{font-size:11px;font-weight:600;color:#333;line-height:12px;white-space:nowrap}
-  .cday .pn{font-size:7px;color:#9a9a9a;line-height:12px;white-space:nowrap}
-  .cday .bars{margin-top:auto;display:flex;flex-direction:column;gap:2px}
-  .cday .tb{display:flex;align-items:center;gap:2px;height:8px}
-  .cday .tb em{font-style:normal;font-size:8px;line-height:8px;color:#9a9a9a;width:8px;flex:0 0 8px;text-align:center}
-  .cday .tr{flex:1;min-width:0;height:3px;border-radius:2px;background:#f0f0f0;overflow:hidden}
-  .cday .tr i{display:block;height:3px;border-radius:2px}
-  .cday .tr i.g{background:var(--green)}
-  .cday .tr i.y{background:var(--yellow)}
-  .cday.future{opacity:.35}
+  .calweek{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:2px 10px 8px}
+  .calweek span{text-align:center;font-size:12px;color:#a3a3a3;font-weight:500}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:84px;gap:5px;padding:0 10px;margin:auto 0 14px}
+  /* 每日任务用「高亮条」呈现：文字在条内，颜色即状态 */
+  .cday{min-height:0;border-radius:10px;background:#fff;padding:5px;display:flex;
+    flex-direction:column;position:relative;cursor:pointer;overflow:hidden}
+  .cday:active{background:#fafafa}
+  .cday .dtop{display:flex;justify-content:space-between;align-items:center;height:18px;padding:0 1px}
+  .cday .dn{font-size:13px;font-weight:600;color:#333;line-height:18px;min-width:18px;height:18px;
+    text-align:center;border-radius:9px;padding:0 2px}
+  .cday .pn{font-size:9px;color:#b0b0b0;line-height:18px}
+  .cday .bars{margin-top:3px;display:flex;flex-direction:column;gap:2px;min-width:0}
+  .cday .tb{height:16px;border-radius:4px;padding:0 3px;min-width:0;display:flex;align-items:center}
+  .cday .tb span{font-size:10.5px;line-height:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cday .tb.g{background:#dcf2e5;color:#0a7a3f}
+  .cday .tb.y{background:#ffedd1;color:#9a5c00}
+  .cday.future{opacity:.32}
   .cday.out{background:transparent}
-  .cday.today{box-shadow:inset 0 0 0 2px #111}
-  .cday .dn .man{display:inline-block;width:4px;height:4px;border-radius:50%;background:#576b95;margin-left:2px;vertical-align:1px}
+  .cday.today .dn{background:#111;color:#fff}
+  .cday .dn .man{display:inline-block;width:4px;height:4px;border-radius:50%;background:#576b95;margin-left:1px;vertical-align:3px}
   .legend i.lg{width:13px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
   .legend i.lg.g{background:var(--green)} .legend i.lg.y{background:var(--yellow)} .legend i.lg.n{background:#e6e6e6}
-  /* 汇总页底部：单行说明，次要解释收进 "?" 气泡 */
-  .callegend{display:flex;align-items:center;gap:6px;padding:10px 14px 12px;font-size:11px;color:#777;white-space:nowrap}
-  .callegend i.lg{width:13px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
-  .callegend i.lg.g{background:var(--green)} .callegend i.lg.y{background:var(--yellow)}
+  /* 汇总页底部：月度概览 + 单行图例 */
+  .calstats{display:flex;gap:6px;padding:0 10px 10px}
+  .cst{flex:1;background:#fff;border-radius:10px;padding:8px 10px;min-width:0}
+  .cst .k{display:block;font-size:10px;color:#9a9a9a}
+  .cst b{display:block;margin-top:2px;font-size:15px;font-weight:700;color:#222;white-space:nowrap}
+  .callegend{display:flex;align-items:center;gap:8px;padding:0 12px 14px;font-size:11px;color:#8a8a8a;white-space:nowrap}
+  .callegend .lg{display:inline-block;width:12px;height:7px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+  .callegend .lg.g{background:#dcf2e5;box-shadow:inset 0 0 0 1px #b7e3c9}
+  .callegend .lg.y{background:#ffedd1;box-shadow:inset 0 0 0 1px #f2d19a}
   .callegend .q{width:15px;height:15px;border-radius:50%;border:.5px solid #cfcfcf;color:#888;font-size:10px;
     display:inline-flex;align-items:center;justify-content:center;flex:0 0 15px;cursor:pointer;line-height:1}
   .callegend .hint{margin-left:auto;color:#9a9a9a}
@@ -841,8 +850,8 @@ function recordPanel(p){
 
 /* ---------- S8 日历 ---------- */
 function shortName(n){
-  const s = String(n || '?');
-  return /^[A-Za-z0-9]/.test(s) ? s[0] : s.slice(0,1);
+  const s = String(n || '?').replace(/计划/g, '');
+  return (s || String(n || '?')).slice(0, 2);
 }
 function renderCalendar(){
   const { y, m } = S.calYM;
@@ -873,9 +882,8 @@ function renderCalendar(){
     const shown = list.slice(0, 3);              // 每格最多 3 条，超出折叠为 +N
     const more = list.length - shown.length;
     const bars = shown.map(t => {
-      const ratio = Math.max(8, Math.min(100, Math.round(t.v / t.p.targetMin * 100)));
       const cls = t.v >= t.p.targetMin ? 'g' : 'y';
-      return `<div class="tb"><em>${shortName(t.p.name)}</em><span class="tr"><i class="${cls}" style="width:${ratio}%"></i></span></div>`;
+      return `<div class="tb ${cls}"><span>${escapeHtml(shortName(t.p.name))}</span></div>`;
     }).join('');
     const today = date===DEMO_TODAY ? 'today' : '';
     cells += `<div class="cday ${future?'future':''} ${today}" onclick="openDayAll('${date}')">
@@ -885,21 +893,33 @@ function renderCalendar(){
   }
   const total = lead + dim;
   const rows = Math.ceil(total / 7);
-  for (let i=0; i<rows*7-total; i++) cells += `<div class="cday out"></div>`;   // 补齐末行，保证网格等高
+  for (let i=0; i<rows*7-total; i++) cells += `<div class="cday out"></div>`;   // 补齐末行
+
+  // 本月概览
+  const ym = `${y}-${pad2(m+1)}`;
+  let recDays = 0, metDays = 0, totalMin = 0;
+  Object.keys(tasks).forEach(d => {
+    if (d.slice(0, 7) !== ym) return;
+    const list = tasks[d];
+    if (!list.length) return;
+    recDays += 1;
+    totalMin += list.reduce((a, t) => a + t.v, 0);
+    if (list.every(t => t.v >= t.p.targetMin)) metDays += 1;
+  });
 
   return `<div class="calpage">` + nav('汇总')
     + `<div class="calhead">
         <div class="calnav" onclick="shiftMonth(-1)">‹</div>
-        <div class="m">${y}年${m+1}月</div>
-        <div class="row" style="gap:4px"><div class="tiny caltoday" onclick="goToday()">本月</div><div class="calnav" onclick="shiftMonth(1)">›</div></div>
+        <div class="calmonth">${y}年${m+1}月</div>
+        <div class="right"><span class="caltoday" onclick="goToday()">本月</span><div class="calnav" onclick="shiftMonth(1)">›</div></div>
       </div>
-    <div class="mg" style="padding:0 14px 6px;gap:6px">
-      <span style="text-align:center;font-size:10px;color:#aaa">一</span><span style="text-align:center;font-size:10px;color:#aaa">二</span>
-      <span style="text-align:center;font-size:10px;color:#aaa">三</span><span style="text-align:center;font-size:10px;color:#aaa">四</span>
-      <span style="text-align:center;font-size:10px;color:#aaa">五</span><span style="text-align:center;font-size:10px;color:#aaa">六</span>
-      <span style="text-align:center;font-size:10px;color:#aaa">日</span>
+    <div class="calweek">${['一','二','三','四','五','六','日'].map(w=>`<span>${w}</span>`).join('')}</div>
+    <div class="calgrid">${cells}</div>
+    <div class="calstats">
+      <div class="cst"><span class="k">记录天数</span><b>${recDays} 天</b></div>
+      <div class="cst"><span class="k">达标天数</span><b>${metDays} 天</b></div>
+      <div class="cst"><span class="k">累计投入</span><b>${hLabel(totalMin)}</b></div>
     </div>
-    <div class="calgrid" style="grid-template-rows:repeat(${rows},1fr)">${cells}</div>
     <div class="callegend">
       <span><i class="lg g"></i>达标</span>
       <span><i class="lg y"></i>未达标</span>
@@ -912,10 +932,10 @@ function calHelp(){
   overlay(`<div class="mask" onclick="if(event.target===this)closeOverlay()">
     <div class="sheet"><div class="hd">日历说明</div>
       <div class="sheetbody" style="background:#fff;padding:16px 18px;font-size:13px;line-height:1.9;color:#555">
-        每条 = 一个任务：条长是该任务当日的完成度，颜色是达标（绿）/ 未达标（黄）。<br/>
-        日期数字右侧的<b>蓝点</b>表示当天含手动补录。<br/>
-        <b>透明格</b>表示该日在计划区间之外；<b>描边格</b>是今天。<br/>
-        格子底色不表示"这一天是否达标"，避免与任务级颜色冲突；要看整体，点日期查看当天任务清单。
+        每条 = 一个任务，条内文字是任务名缩写：绿色为达标，橙色为未达标。<br/>
+        每日最多显示 3 条，其余收进右上角 +N；日期旁的<b>蓝点</b>表示当天含手动补录。<br/>
+        <b>透明格</b>表示该日在计划区间之外；今天用黑底日期标出。<br/>
+        底部概览统计本月有记录的天数、全部任务达标的天数与累计投入。
       </div>
       <div class="it cancel" onclick="closeOverlay()">我知道了</div>
     </div></div>`);
