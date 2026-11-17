@@ -73,7 +73,9 @@
   /* 右划卡片露出「置顶 / 删除」 */
   .plan-swipe{position:relative;margin-bottom:10px;border-radius:12px;overflow:hidden;background:#f2f2f2}
   .plan-swipe .plan-card{margin-bottom:0;position:relative;z-index:2;touch-action:pan-y;will-change:transform}
-  .swipe-actions{position:absolute;top:0;bottom:0;left:0;width:120px;display:flex;z-index:1}
+  .swipe-actions{position:absolute;top:0;bottom:0;left:0;width:120px;display:flex;z-index:1;
+    opacity:0;pointer-events:none;transition:opacity .15s}
+  .plan-swipe.open .swipe-actions,.plan-swipe.revealing .swipe-actions{opacity:1;pointer-events:auto}
   .swipe-actions .sa{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;
     font-size:11px;line-height:1.25;color:#fff;cursor:pointer;padding:0 4px;user-select:none}
   .swipe-actions .sa.pin{background:var(--blue)}
@@ -176,15 +178,24 @@
   .calhead{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 10px}
   .calhead .m{font-size:17px;font-weight:700}
   .calnav{font-size:20px;color:#666;padding:6px 10px;cursor:pointer}
+  .caltoday{padding:4px 8px;border-radius:6px;cursor:pointer}
+  .caltoday:active{background:#ececec}
+  @keyframes todayPulse{
+    0%,100%{box-shadow:inset 0 0 0 2px #111}
+    50%{box-shadow:inset 0 0 0 3px #111,0 0 0 4px rgba(17,17,17,.14)}
+  }
+  .cday.today.pulse{animation:todayPulse .7s ease 2}
+  .calpage{display:flex;flex-direction:column;min-height:100%}
   .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:0 14px}
+  .calpage .calgrid{flex:1}
   /* 任务级色条：底色中性，颜色只属于任务条。375px 下 3 条不挤压日期数字：
-     行高 13→12、条行 9→8、行距 3→2，格高 46→48 */
-  .cday{min-height:48px;border-radius:9px;background:#fff;padding:3px;display:flex;
+     行高 13→12、条行 9→8、行距 3→2 */
+  .cday{min-height:0;border-radius:9px;background:#fff;padding:3px;display:flex;
     flex-direction:column;position:relative;cursor:pointer}
   .cday .dtop{display:flex;justify-content:space-between;align-items:flex-start;height:12px;padding:0 1px}
   .cday .dn{font-size:11px;font-weight:600;color:#333;line-height:12px;white-space:nowrap}
   .cday .pn{font-size:7px;color:#9a9a9a;line-height:12px;white-space:nowrap}
-  .cday .bars{margin-top:2px;display:flex;flex-direction:column;gap:2px}
+  .cday .bars{margin-top:auto;display:flex;flex-direction:column;gap:2px}
   .cday .tb{display:flex;align-items:center;gap:2px;height:8px}
   .cday .tb em{font-style:normal;font-size:8px;line-height:8px;color:#9a9a9a;width:8px;flex:0 0 8px;text-align:center}
   .cday .tr{flex:1;min-width:0;height:3px;border-radius:2px;background:#f0f0f0;overflow:hidden}
@@ -872,12 +883,15 @@ function renderCalendar(){
       <div class="bars">${bars}</div>
     </div>`;
   }
+  const total = lead + dim;
+  const rows = Math.ceil(total / 7);
+  for (let i=0; i<rows*7-total; i++) cells += `<div class="cday out"></div>`;   // 补齐末行，保证网格等高
 
-  return nav('汇总')
+  return `<div class="calpage">` + nav('汇总')
     + `<div class="calhead">
         <div class="calnav" onclick="shiftMonth(-1)">‹</div>
         <div class="m">${y}年${m+1}月</div>
-        <div class="row" style="gap:10px"><div class="tiny" onclick="goToday()" style="cursor:pointer">本月</div><div class="calnav" onclick="shiftMonth(1)">›</div></div>
+        <div class="row" style="gap:4px"><div class="tiny caltoday" onclick="goToday()">本月</div><div class="calnav" onclick="shiftMonth(1)">›</div></div>
       </div>
     <div class="mg" style="padding:0 14px 6px;gap:6px">
       <span style="text-align:center;font-size:10px;color:#aaa">一</span><span style="text-align:center;font-size:10px;color:#aaa">二</span>
@@ -885,13 +899,13 @@ function renderCalendar(){
       <span style="text-align:center;font-size:10px;color:#aaa">五</span><span style="text-align:center;font-size:10px;color:#aaa">六</span>
       <span style="text-align:center;font-size:10px;color:#aaa">日</span>
     </div>
-    <div class="calgrid">${cells}</div>
+    <div class="calgrid" style="grid-template-rows:repeat(${rows},1fr)">${cells}</div>
     <div class="callegend">
       <span><i class="lg g"></i>达标</span>
       <span><i class="lg y"></i>未达标</span>
       <span class="q" onclick="calHelp()">?</span>
       <span class="hint">点击日期查看当天详情</span>
-    </div>`;
+    </div></div>`;
 }
 /* 次要解释（补录 / 区间外 / 底色语义）收进一次性气泡，不常驻 */
 function calHelp(){
@@ -911,7 +925,12 @@ function shiftMonth(d){
   if (m < 0){ m = 11; y--; } if (m > 11){ m = 0; y++; }
   S.calYM = { y, m }; save(); render();
 }
-function goToday(){ S.calYM = { y:2027, m:1 }; save(); render(); }
+function goToday(){
+  const [yy, mm] = DEMO_TODAY.split('-').map(Number);
+  S.calYM = { y: yy, m: mm - 1 }; save(); render();
+  const el = document.querySelector('.cday.today');   // 已在本月时也给出反馈
+  if (el) el.classList.add('pulse');
+}
 
 /* ---------- S4 我的 ---------- */
 function renderMe(){
@@ -1303,6 +1322,7 @@ function closeSwipe(){
   const c = openSwipe.querySelector('.plan-card');
   if (c){ c.style.transition = 'transform .22s ease'; c.style.transform = 'translateX(0)'; }
   openSwipe.classList.remove('open');
+  openSwipe.classList.remove('revealing');
   openSwipe = null;
 }
 
@@ -1320,6 +1340,7 @@ function bindCommon(){
       card.style.transition = 'transform .22s ease';
       card.style.transform = `translateX(${open ? SWIPE_W : 0}px)`;
       wrap.classList.toggle('open', open);
+      wrap.classList.remove('revealing');
       if (open){
         if (openSwipe && openSwipe !== wrap) closeSwipe();
         openSwipe = wrap;
@@ -1344,6 +1365,7 @@ function bindCommon(){
         axis = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
         cancelTimer();
         if (axis === 'y'){ dragging = false; return; }   // 纵向交给页面滚动
+        wrap.classList.add('revealing');                 // 拖动中先露出按钮
       }
       dx = Math.max(0, Math.min(SWIPE_W, base + mx));
       if (Math.abs(dx - base) > 6) swiped = true;
