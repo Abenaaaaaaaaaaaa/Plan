@@ -76,10 +76,11 @@
   .tabbar .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
     font-size:11px;color:#8a8a8a;cursor:pointer}
   .tabbar .tab.on{color:var(--ink);font-weight:600}
-  .tabbar .ti{font-size:17px;line-height:1}
+  .tabbar .ti{font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
   .toolbar{display:flex;justify-content:flex-end;align-items:center;gap:20px;padding:0 18px 4px;
     font-size:19px;line-height:1;color:#333}
-  .toolbar .tb{cursor:pointer}
+  .toolbar .tb{display:flex;align-items:center;cursor:pointer}
+  .avatar svg{width:26px;height:26px;color:#9a9a9a}
 
   /* 表单 */
   .field{background:#fff;border-radius:12px;margin-bottom:10px;overflow:hidden}
@@ -282,6 +283,8 @@
 const DAY = 86400000;
 const DEMO_TODAY = '2027-02-28';           // PRD 示例"今天"（计划第 120 天）
 const KEY = 'plan_timer_v2_state';
+const STATE_VERSION = 2;
+const DEMO = /[?&]demo=1(?:&|$)/.test(location.search);   // 演示控件（重置数据/模拟跨天/加速）
 
 const $ = (s) => document.querySelector(s);
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -290,6 +293,21 @@ const parseD = (s) => { const [y,m,d] = s.split('-').map(Number); return new Dat
 const addDays = (s, n) => { const d = parseD(s); d.setDate(d.getDate()+n); return fmtDate(d); };
 const diffDays = (a, b) => Math.round((parseD(a) - parseD(b)) / DAY);
 const uid = () => Math.random().toString(36).slice(2, 10);
+
+/* 内联 SVG 图标：避免 emoji 在不同系统上的字形/基线差异 */
+const svgIcon = (d, size) => `<svg viewBox="0 0 24 24" width="${size||20}" height="${size||20}" fill="none"
+  stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  plans: svgIcon('<path d="M4 6.5h16M4 12h16M4 17.5h10"/>'),
+  cal: svgIcon('<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3.5v3M16 3.5v3M3.5 9.8h17"/>'),
+  plus: svgIcon('<path d="M12 5v14M5 12h14"/>'),
+  user: svgIcon('<circle cx="12" cy="8" r="3.6"/><path d="M4.8 20c1.2-3.5 4-5.2 7.2-5.2s6 1.7 7.2 5.2"/>'),
+  more: svgIcon('<circle cx="5.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.2" fill="currentColor" stroke="none"/>'),
+  play: `<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>`,
+  back: svgIcon('<path d="M14.5 5 8 12l6.5 7"/>'),
+  folder: svgIcon('<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>', 44),
+  calendarEmpty: svgIcon('<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3.5v3M16 3.5v3M3.5 9.8h17M8 14h3"/>', 44)
+};
 
 const hLabel = (min) => {
   if (min === 0) return '0h';
@@ -302,16 +320,42 @@ const mmss = (sec) => `${pad2(Math.floor(sec/3600))}:${pad2(Math.floor(sec%3600/
 let S = load();
 
 function emptyState(){
-  return { plans: [], segs: [], running: null, session: null, tab: 'plans', deleted: null, speed: 1, calYM: {y:2027, m:1} };
+  return { v: STATE_VERSION, plans: [], segs: [], running: null, session: null, tab: 'plans',
+    deleted: null, speed: 1, calYM: {y:2027, m:1} };
 }
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
-    if (raw) { const st = JSON.parse(raw); if (st && st.plans) return st; }
+    if (raw){
+      const st = JSON.parse(raw);
+      if (st && Array.isArray(st.plans)) return normalizeState(st);
+    }
   }catch(e){}
   return seed();
 }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+/* 兼容旧版本存档：补齐缺失字段，避免读到旧结构时报错 */
+function normalizeState(st){
+  st.v = STATE_VERSION;
+  st.plans = st.plans.filter(p => p && p.id).map(p => Object.assign({
+    targetMin: 60, start: DEMO_TODAY, end: DEMO_TODAY, createdAt: Date.now(), updatedAt: Date.now(),
+    pinnedAt: null, deletedAt: null, targetVersion: 1, changedAt: null
+  }, p));
+  st.segs = (Array.isArray(st.segs) ? st.segs : []).filter(s => s && s.planId && s.date)
+    .map(s => Object.assign({ id: uid(), min: 0, source: 'timer', reason: 'user_end',
+      startTs: null, endTs: null }, s));
+  st.session = st.session || null;
+  st.tab = st.tab === 'cal' ? 'cal' : 'plans';
+  st.speed = st.speed > 1 ? 60 : 1;
+  st.calYM = (st.calYM && typeof st.calYM.m === 'number') ? st.calYM : { y: 2027, m: 1 };
+  return st;
+}
+let saveWarned = false;
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); }
+  catch(e){
+    if (!saveWarned){ saveWarned = true; toast('本地存储不可用，本次修改可能无法保存'); }
+  }
+}
 
 function seed(){
   const st = emptyState();
@@ -412,12 +456,30 @@ function sessionMin(){ return Math.floor(sessionSec()/60); }
 
 /* ============ 视图路由 ============ */
 let view = { name:'list', planId:null, editId:null, tab2:'overview' };
+let navStack = [];               // 页面栈：与浏览器返回键联动（计时层不进入此栈）
 
-function go(name, obj){
-  view = Object.assign({ name, planId:null, editId:null, tab2:'overview' }, obj || {});
+function go(name, obj, replace){
+  const next = Object.assign({ name, planId:null, editId:null, tab2:'overview' }, obj || {});
+  /* 计时页是覆盖层（PRD §9.3），不进入页面栈；Tab 根切换用 replace 避免堆积历史 */
+  if (!replace && view && view.name !== 'timer') navStack.push(Object.assign({}, view));
+  view = next;
   render();
   const sc = $('#screen'); if (sc) sc.scrollTop = 0;   // 进入新页从顶部开始
+  if (!replace){ try { history.pushState({ depth: navStack.length }, ''); } catch(e){} }
 }
+
+/* 浏览器/安卓返回键：优先走页面栈；在计时层则先弹结束确认，不静默丢时间 */
+window.addEventListener('popstate', () => {
+  if (view.name === 'timer'){
+    try { history.pushState({ depth: navStack.length }, ''); } catch(e){}
+    exitTimer();
+    return;
+  }
+  if (!navStack.length) return;   // 已在根页面，交给浏览器默认行为
+  view = navStack.pop();
+  render();
+  const sc = $('#screen'); if (sc) sc.scrollTop = 0;
+});
 
 /* ============ 渲染 ============ */
 function render(){
@@ -439,7 +501,7 @@ function nav(title, opt){
   opt = opt || {};
   const spacer = `<div style="width:32px;flex:0 0 32px"></div>`;
   return `<div class="navbar ${opt.right?'hasact':''}">
-    ${opt.back ? `<div class="back" onclick="goBack()">‹</div>` : spacer}
+    ${opt.back ? `<div class="back" onclick="goBack()" aria-label="返回">${ICON.back}</div>` : spacer}
     <div class="title">${title}</div>
     ${opt.right ? `<div class="right">${opt.right}</div>` : spacer}
   </div>`;
@@ -447,13 +509,13 @@ function nav(title, opt){
 
 function renderTabbar(){
   return `<div class="tabbar">
-    <div class="tab ${S.tab==='plans'?'on':''}" onclick="switchTab('plans')"><div class="ti">☰</div>计划</div>
-    <div class="tab ${S.tab==='cal'?'on':''}" onclick="switchTab('cal')"><div class="ti">▦</div>汇总</div>
+    <div class="tab ${S.tab==='plans'?'on':''}" onclick="switchTab('plans')"><div class="ti">${ICON.plans}</div>计划</div>
+    <div class="tab ${S.tab==='cal'?'on':''}" onclick="switchTab('cal')"><div class="ti">${ICON.cal}</div>汇总</div>
   </div>`;
 }
 function switchTab(t){
   S.tab = t; save();
-  go(t === 'plans' ? 'list' : 'calendar');
+  go(t === 'plans' ? 'list' : 'calendar', null, true);   // Tab 根切换不堆叠历史
 }
 
 /* ---------- S3 列表 ---------- */
@@ -464,12 +526,12 @@ function renderList(){
       || statusRank(a) - statusRank(b)
       || b.updatedAt - a.updatedAt);
   const toolbar = `<div class="toolbar">
-      ${plans.length ? `<span class="tb" onclick="go('form')">＋</span>` : ''}
-      <span class="tb" onclick="go('me')">👤</span>
+      ${plans.length ? `<span class="tb" onclick="go('form')" aria-label="新建计划">${ICON.plus}</span>` : ''}
+      <span class="tb" onclick="go('me')" aria-label="我的">${ICON.user}</span>
     </div>`;
   if (!plans.length){
     return nav('我的计划') + toolbar + `<div class="empty">
-      <div class="ei">🗂</div>
+      <div class="ei">${ICON.folder}</div>
       <h3>还没有计划</h3>
       <p>设定一个每天的目标时长，<br/>开始记录你的学习时间</p>
       <button class="btn main" onclick="go('form')">新建第一个计划</button>
@@ -503,8 +565,8 @@ function cardHTML(p){
       <span class="badge ${badge[0]}">${badge[1]}</span>
       ${p.pinnedAt?'<span class="pill-top">置顶</span>':''}
       <div class="grow"></div>
-      ${st==='进行中'?`<div class="play" onclick="event.stopPropagation();openTimer('${p.id}')">▶</div>`:''}
-      ${st==='未开始'?`<div class="play off">▶</div>`:''}
+      ${st==='进行中'?`<div class="play" onclick="event.stopPropagation();openTimer('${p.id}')" aria-label="开始计时">${ICON.play}</div>`:''}
+      ${st==='未开始'?`<div class="play off">${ICON.play}</div>`:''}
     </div>
     <div class="row" style="gap:10px">
       <div class="bar"><i style="width:${w}%"></i></div>
@@ -676,7 +738,7 @@ function renderDetail(){
       <button class="btn main" ${footDisabled?'disabled':''} onclick="${footAction}">${footLabel}</button>
     </div>`;
 
-  return nav(escapeHtml(p.name), { back:true, right:`<div class="navbtn" onclick="openMore('${p.id}')">⋮</div>` })
+  return nav(escapeHtml(p.name), { back:true, right:`<div class="navbtn" onclick="openMore('${p.id}')" aria-label="更多">${ICON.more}</div>` })
     + seg + body + foot;
 }
 function setTab2(t){
@@ -726,7 +788,7 @@ function recordPanel(p){
   const empty = planSegs(p).length === 0;
   if (empty) {
     return `<div class="empty" style="padding:48px 30px">
-      <div class="ei">🗓</div><h3>还没有记录</h3>
+      <div class="ei">${ICON.calendarEmpty}</div><h3>还没有记录</h3>
       <p>去开始第一次计时</p>
     </div>`;
   }
@@ -833,7 +895,7 @@ function goToday(){ S.calYM = { y:2027, m:1 }; save(); render(); }
 function renderMe(){
   return nav('我的', { back:true })
    + `<div class="me-head">
-      <div class="avatar">👤</div>
+      <div class="avatar">${ICON.user}</div>
       <div class="grow">
         <div style="font-size:16px;font-weight:600">未设置昵称</div>
         <div class="tiny" style="margin-top:3px">点击设置昵称（最多 10 个字）</div>
@@ -849,10 +911,10 @@ function renderMe(){
       <div class="mi" onclick="showLegal('privacy')"><span>隐私政策</span><span class="v">›</span></div>
       <div class="mi" onclick="toast('正在打开客服会话…')"><span>联系我们</span><span class="v">›</span></div>
     </div>
-    <div class="menu">
+    ${DEMO ? `<div class="menu">
       <div class="mi" onclick="clearAllPlans()"><span>查看空态（清空全部计划）</span><span class="v">演示 ›</span></div>
       <div class="mi" onclick="resetDemo()"><span>重置演示数据</span><span class="v">演示 ›</span></div>
-    </div>
+    </div>` : ''}
     <div class="tiny" style="text-align:center;padding:18px">当前版本 v1.0.0</div>`;
 }
 function clearAllPlans(){
@@ -1052,14 +1114,14 @@ function renderTimer(){
          <button class="btn main" onclick="${stt==='running'?'pauseSession()':'resumeSession()'}">${stt==='running'?'暂停':'继续'}</button>
          <button class="btn ghost" style="flex:0 0 40%" onclick="endSession()">结束</button>
        </div>
-       <div class="demo-links">
+       ${DEMO ? `<div class="demo-links">
          <span onclick="simulateMidnight()">模拟跨天</span>
          <span onclick="toggleSpeed()">演示加速 ${S.speed>1?'×1':'×60'}</span>
-       </div>`;
+       </div>` : ''}`;
 
   $('#screen').innerHTML = `<div class="timer">
     <div class="navbar">
-      <div class="back" onclick="exitTimer()">‹</div>
+      <div class="back" onclick="exitTimer()">${ICON.back}</div>
       <div class="title">${escapeHtml(p.name)}</div>
       <div style="width:32px;flex:0 0 32px"></div>
     </div>
@@ -1134,7 +1196,7 @@ function endSession(){
     <div class="dialog">
       <div class="dt">本次计时结束</div>
       <div class="db">本次 ${min} 分钟 · 今日 ${tm} 分钟 · ${met?'已达标 ✓':'距目标还差 '+(p.targetMin-tm)+' 分钟'}</div>
-      <div class="df"><div style="color:#333" onclick="closeOverlay();go('detail',{planId:'${p.id}',tab2:'record'})">完成</div></div>
+      <div class="df"><div style="color:#333" onclick="closeOverlay();exitTimerTo('${p.id}','record')">完成</div></div>
     </div></div>`);
 }
 function toggleSpeed(){
@@ -1170,15 +1232,22 @@ function exitTimer(){
     return;
   }
   S.session = null; save();
-  go('detail', { planId: view.planId || 'p1' });
+  exitTimerTo(view.planId);
 }
-function abandon(){ S.session = null; save(); go('detail', { planId: view.planId || 'p1' }); }
+function abandon(){ S.session = null; save(); exitTimerTo(view.planId); }
 
-/* 返回 */
+/* 离开计时覆盖层：不回退页面栈、不新增历史条目（进入计时时已压栈） */
+function exitTimerTo(planId, tab2){
+  view = { name:'detail', planId: planId || 'p1', editId:null, tab2: tab2 || 'overview' };
+  render();
+  const sc = $('#screen'); if (sc) sc.scrollTop = 0;
+}
+
+/* 返回：优先交给浏览器历史，保证与安卓返回键/侧滑手势一致 */
 function goBack(){
-  if (view.name === 'detail') go('list');
-  else if (view.name === 'form') go(view.editId ? 'detail' : 'list', {planId: view.editId});
-  else go('list');
+  if (view.name === 'timer'){ exitTimer(); return; }
+  if (navStack.length){ history.back(); return; }
+  go('list', null, true);
 }
 
 /* 导出：已删除计划及其片段不进入备份 */
