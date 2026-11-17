@@ -70,6 +70,16 @@
     justify-content:center;font-size:12px;flex:0 0 30px;cursor:pointer}
   .play.off{background:#dcdcdc;color:#fff}
 
+  /* 右划卡片露出「置顶 / 删除」 */
+  .plan-swipe{position:relative;margin-bottom:10px;border-radius:12px;overflow:hidden;background:#f2f2f2}
+  .plan-swipe .plan-card{margin-bottom:0;position:relative;z-index:2;touch-action:pan-y;will-change:transform}
+  .swipe-actions{position:absolute;top:0;bottom:0;left:0;width:120px;display:flex;z-index:1}
+  .swipe-actions .sa{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;
+    font-size:11px;line-height:1.25;color:#fff;cursor:pointer;padding:0 4px;user-select:none}
+  .swipe-actions .sa.pin{background:var(--blue)}
+  .swipe-actions .sa.del{background:var(--red)}
+  .swipe-actions .sa:active{filter:brightness(.92)}
+
   /* Tab bar */
   .tabbar{flex:0 0 auto;min-height:56px;padding-bottom:env(safe-area-inset-bottom);
     background:#f7f7f7;border-top:.5px solid #e2e2e2;display:flex;position:relative;z-index:5}
@@ -492,6 +502,7 @@ function render(){
   else if (view.name === 'form') html = renderForm();
   else if (view.name === 'me') html = renderMe();
 
+  openSwipe = null;
   $('#screen').innerHTML = html;
   $('#tabbar').innerHTML = (view.name === 'list' || view.name === 'calendar') ? renderTabbar() : '';
   bindCommon();
@@ -559,7 +570,12 @@ function cardHTML(p){
   if (st === '未开始') line4 = `目标 ${hLabel(targetTotal(p))}`;
 
   const over = c > 100;
-  return `<div class="plan-card ${p.pinnedAt?'pinned':''} ${(st==='已过期'||st==='已结束')?'dead':''}" data-id="${p.id}">
+  return `<div class="plan-swipe" data-id="${p.id}">
+    <div class="swipe-actions">
+      <div class="sa pin" onclick="togglePin('${p.id}')">${p.pinnedAt?'取消置顶':'置顶'}</div>
+      <div class="sa del" onclick="askDelete('${p.id}')">删除</div>
+    </div>
+    <div class="plan-card ${p.pinnedAt?'pinned':''} ${(st==='已过期'||st==='已结束')?'dead':''}" data-id="${p.id}">
     <div class="pc-head">
       <div class="pc-name">${escapeHtml(p.name)}</div>
       <span class="badge ${badge[0]}">${badge[1]}</span>
@@ -575,6 +591,7 @@ function cardHTML(p){
     ${over?`<div class="tiny" style="margin-top:6px;color:#0a8f46">已超额 ${hLabel(accumulated(p)-targetTotal(p))}</div>`:''}
     <div class="pc-line"><span class="grow">${line3}</span></div>
     <div class="pc-line" style="margin-top:4px;color:#a0a0a0;font-size:11px">${line4}</div>
+    </div>
   </div>`;
 }
 
@@ -632,7 +649,12 @@ function onNameInput(v){
 function cancelForm(){
   const editingId = view.editId;
   formState = null;
-  if (editingId) go('detail', {planId: editingId}); else go('list');
+  leaveForm(editingId ? 'detail' : 'list', editingId ? {planId: editingId} : null);
+}
+/* 保存/取消后回到进入表单前的页面：回退历史，避免表单留在页面栈里被再次退回 */
+function leaveForm(target, obj){
+  if (navStack.length){ history.back(); return; }
+  go(target, obj, true);
 }
 function toggleCustom(){ formState.custom = !formState.custom; rerenderForm(); }
 function setCustom(v){ const n = parseInt(v,10); formState.target = isNaN(n)?0:n; formState.custom = true; const d = Math.max(0,diffDays(formState.end,formState.start)+1); document.querySelectorAll('.field .fv')[1].textContent = '合计 ' + hLabel(formState.target*d); }
@@ -662,11 +684,11 @@ function savePlan(){
       p.targetVersion += 1; p.changedAt = DEMO_TODAY;
     }
     p.name = f.name; p.targetMin = f.target; p.start = f.start; p.end = f.end; p.updatedAt = Date.now();
-    save(); go('detail', {planId:p.id}); return;
+    save(); formState = null; leaveForm('detail', {planId:p.id}); return;
   }
   const p = { id: uid(), name: f.name, targetMin: f.target, start: f.start, end: f.end,
     createdAt: Date.now(), updatedAt: Date.now(), pinnedAt: null, deletedAt: null, targetVersion: 1, changedAt: null };
-  S.plans.push(p); save(); formState = null; go('list');
+  S.plans.push(p); save(); formState = null; leaveForm('list');
 }
 
 /* ---------- S5 详情 ---------- */
@@ -1273,30 +1295,92 @@ function download(name, text){
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-/* ============ 绑定事件（长按等） ============ */
+/* ============ 绑定事件（长按 / 右划） ============ */
+const SWIPE_W = 120;
+let openSwipe = null;
+function closeSwipe(){
+  if (!openSwipe) return;
+  const c = openSwipe.querySelector('.plan-card');
+  if (c){ c.style.transition = 'transform .22s ease'; c.style.transform = 'translateX(0)'; }
+  openSwipe.classList.remove('open');
+  openSwipe = null;
+}
+
 function bindCommon(){
-  document.querySelectorAll('.plan-card').forEach(card => {
-    let t = null, longPressed = false, sx = 0, sy = 0;
-    const id = card.dataset.id;
-    const cancel = () => { if (t){ clearTimeout(t); t = null; } };
-    card.addEventListener('pointerdown', (e) => {
+  document.querySelectorAll('.plan-swipe').forEach(wrap => {
+    const card = wrap.querySelector('.plan-card');
+    const id = wrap.dataset.id;
+    let t = null, longPressed = false, swiped = false;
+    let sx = 0, sy = 0, dx = 0, base = 0, axis = null, dragging = false;
+
+    const cancelTimer = () => { if (t){ clearTimeout(t); t = null; } };
+    const setX = (x) => { card.style.transition = 'none'; card.style.transform = `translateX(${x}px)`; };
+    const settle = () => {
+      const open = dx > SWIPE_W * 0.4;
+      card.style.transition = 'transform .22s ease';
+      card.style.transform = `translateX(${open ? SWIPE_W : 0}px)`;
+      wrap.classList.toggle('open', open);
+      if (open){
+        if (openSwipe && openSwipe !== wrap) closeSwipe();
+        openSwipe = wrap;
+      } else if (openSwipe === wrap) openSwipe = null;
+    };
+
+    wrap.addEventListener('pointerdown', (e) => {
       if (!e.isPrimary) return;
-      longPressed = false; sx = e.clientX; sy = e.clientY;
+      longPressed = false; swiped = false; axis = null; dragging = true;
+      sx = e.clientX; sy = e.clientY;
+      base = wrap.classList.contains('open') ? SWIPE_W : 0;
+      dx = base;
+      try { wrap.setPointerCapture(e.pointerId); } catch(_){}
       t = setTimeout(() => { t = null; longPressed = true; openActionSheet(id); }, 550);
     });
-    card.addEventListener('pointerup', cancel);
-    card.addEventListener('pointerleave', cancel);
-    card.addEventListener('pointercancel', cancel);   // 滚动等中断时取消长按
-    card.addEventListener('pointermove', (e) => {
-      if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) cancel();
+
+    wrap.addEventListener('pointermove', (e) => {
+      if (!dragging || !e.isPrimary) return;
+      const mx = e.clientX - sx, my = e.clientY - sy;
+      if (!axis){
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        axis = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+        cancelTimer();
+        if (axis === 'y'){ dragging = false; return; }   // 纵向交给页面滚动
+      }
+      dx = Math.max(0, Math.min(SWIPE_W, base + mx));
+      if (Math.abs(dx - base) > 6) swiped = true;
+      setX(dx);
     });
+
+    const finish = () => {
+      cancelTimer();
+      const wasX = axis === 'x';
+      dragging = false; axis = null;
+      if (!wasX) return;
+      settle();
+      if (swiped) card.dataset.swiped = '1';   // 抑制随后的 click
+    };
+    wrap.addEventListener('pointerup', finish);
+    wrap.addEventListener('pointercancel', () => {
+      cancelTimer();
+      if (dragging && axis === 'x'){ dx = wrap.classList.contains('open') ? SWIPE_W : 0; settle(); }
+      dragging = false; axis = null;
+    });
+
     card.addEventListener('click', (e) => {
       if (longPressed){ longPressed = false; return; }
+      if (card.dataset.swiped){ delete card.dataset.swiped; return; }
+      if (wrap.classList.contains('open')){ closeSwipe(); return; }
       if (e.target.closest('.play')) return;
+      closeSwipe();
       go('detail', { planId: id });
     });
     card.addEventListener('contextmenu', (e)=>e.preventDefault());
   });
+
+  const sc = $('#screen');
+  if (sc && !sc.dataset.swipeBound){
+    sc.dataset.swipeBound = '1';
+    sc.addEventListener('scroll', closeSwipe, { passive:true });   // 滚动时收起
+  }
 }
 
 /* 页面加载 */
