@@ -192,7 +192,7 @@
   .cday.today.pulse{animation:todayPulse .7s ease 2}
   .calweek{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:2px 10px 8px}
   .calweek span{text-align:center;font-size:12px;color:#a3a3a3;font-weight:500}
-  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:84px;gap:5px;padding:0 10px;margin:auto 0 14px}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:84px;gap:5px;padding:0 10px;margin:8px 0 14px}
   /* 每日任务用「高亮条」呈现：文字在条内，颜色即状态 */
   .cday{min-height:0;border-radius:10px;background:#fff;padding:5px;display:flex;
     flex-direction:column;position:relative;cursor:pointer;overflow:hidden}
@@ -319,6 +319,7 @@ const DEMO = /[?&]demo=1(?:&|$)/.test(location.search);   // 演示控件（重�
 const $ = (s) => document.querySelector(s);
 const pad2 = (n) => String(n).padStart(2, '0');
 const fmtDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const TODAY = fmtDate(new Date());         // 系统真实今天，"本月"按它定位
 const parseD = (s) => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
 const addDays = (s, n) => { const d = parseD(s); d.setDate(d.getDate()+n); return fmtDate(d); };
 const diffDays = (a, b) => Math.round((parseD(a) - parseD(b)) / DAY);
@@ -885,7 +886,7 @@ function renderCalendar(){
       const cls = t.v >= t.p.targetMin ? 'g' : 'y';
       return `<div class="tb ${cls}"><span>${escapeHtml(shortName(t.p.name))}</span></div>`;
     }).join('');
-    const today = date===DEMO_TODAY ? 'today' : '';
+    const today = date===TODAY ? 'today' : '';
     cells += `<div class="cday ${future?'future':''} ${today}" onclick="openDayAll('${date}')">
       <div class="dtop"><span class="dn">${d}${manualOf(date)?'<i class="man"></i>':''}</span>${more>0?`<span class="pn">+${more}</span>`:''}</div>
       <div class="bars">${bars}</div>
@@ -946,8 +947,8 @@ function shiftMonth(d){
   S.calYM = { y, m }; save(); render();
 }
 function goToday(){
-  const [yy, mm] = DEMO_TODAY.split('-').map(Number);
-  S.calYM = { y: yy, m: mm - 1 }; save(); render();
+  const d = parseD(TODAY);
+  S.calYM = { y: d.getFullYear(), m: d.getMonth() }; save(); render();
   const el = document.querySelector('.cday.today');   // 已在本月时也给出反馈
   if (el) el.classList.add('pulse');
 }
