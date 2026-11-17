@@ -50,7 +50,8 @@
   .grow{flex:1}
 
   /* 列表卡片 */
-  .plan-card{position:relative;background:#fff;border-radius:12px;padding:14px 14px 12px;margin-bottom:10px;overflow:hidden}
+  .plan-card{position:relative;background:#fff;border-radius:12px;padding:14px 14px 12px;margin-bottom:10px;overflow:hidden;
+    touch-action:pan-y;-webkit-user-select:none;user-select:none}
   .plan-card.pinned{box-shadow:inset 3px 0 0 var(--green)}
   .plan-card.dead{opacity:.72}
   .pc-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -70,7 +71,8 @@
   .play.off{background:#dcdcdc;color:#fff}
 
   /* Tab bar */
-  .tabbar{flex:0 0 56px;height:56px;background:#f7f7f7;border-top:.5px solid #e2e2e2;display:flex;position:relative;z-index:5}
+  .tabbar{flex:0 0 auto;min-height:56px;padding-bottom:env(safe-area-inset-bottom);
+    background:#f7f7f7;border-top:.5px solid #e2e2e2;display:flex;position:relative;z-index:5}
   .tabbar .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
     font-size:11px;color:#8a8a8a;cursor:pointer}
   .tabbar .tab.on{color:var(--ink);font-weight:600}
@@ -93,7 +95,8 @@
   .dt{display:flex;align-items:center;justify-content:space-between;padding:4px 14px 14px;gap:8px}
   .dt input[type=date]{flex:1;border:0;outline:0;background:#f6f6f6;border-radius:8px;padding:9px 10px;font-size:13px;color:#333;font-family:inherit}
   .err{color:var(--red);font-size:12px;padding:0 14px 12px}
-  .footbar{position:sticky;bottom:0;background:rgba(240,240,240,.94);padding:10px 16px 16px;display:flex;gap:10px;
+  .footbar{position:sticky;bottom:0;background:rgba(240,240,240,.94);
+    padding:10px 16px calc(16px + env(safe-area-inset-bottom));display:flex;gap:10px;
     backdrop-filter:blur(8px);margin-top:auto}
   .btn{border-radius:10px;font-size:15px;font-weight:600;border:0;cursor:pointer;height:46px;display:flex;align-items:center;justify-content:center}
   .btn.main{background:var(--ink);color:#fff;flex:1}
@@ -413,6 +416,7 @@ let view = { name:'list', planId:null, editId:null, tab2:'overview' };
 function go(name, obj){
   view = Object.assign({ name, planId:null, editId:null, tab2:'overview' }, obj || {});
   render();
+  const sc = $('#screen'); if (sc) sc.scrollTop = 0;   // 进入新页从顶部开始
 }
 
 /* ============ 渲染 ============ */
@@ -684,9 +688,15 @@ function setTab2(t){
 function recordPanel(p){
   const dm = dayMap(p);
   const months = [];
-  for (let k = 0; k < 4; k++){
-    const d = new Date(2027, 1 - k, 1);
-    months.push({ y: d.getFullYear(), m: d.getMonth() });
+  /* 以「今天」与「计划结束日」中较早者为起点，逐月连续倒序到计划开始月，最多 12 个月 */
+  const anchorDate = DEMO_TODAY < p.end ? DEMO_TODAY : p.end;
+  const anchor = parseD(anchorDate);
+  const stop = parseD(p.start);
+  let cur = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const stopMonth = new Date(stop.getFullYear(), stop.getMonth(), 1);
+  while (cur >= stopMonth && months.length < 12){
+    months.push({ y: cur.getFullYear(), m: cur.getMonth() });
+    cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1);
   }
   const hasManual = (date) => S.segs.some(s => s.planId===p.id && s.date===date && s.source==='manual');
 
@@ -952,18 +962,15 @@ function openDayAll(date){
 /* 补录 */
 function openManual(planId, presetDate){
   const p = S.plans.find(x=>x.id===planId);
-  const opts = [];
-  for (let d=0; d<Math.min(30, planDays(p)); d++){
-    const date = addDays(DEMO_TODAY, -d);
-    if (date < p.start) break;
-    opts.push(`<option value="${date}" ${(presetDate===date||(!presetDate&&d===0))?'selected':''}>${date}</option>`);
-  }
+  const maxDate = DEMO_TODAY < p.end ? DEMO_TODAY : p.end;   // 不得晚于今天，也不得晚于计划结束日
+  if (maxDate < p.start){ toast('计划尚未开始，暂不能补录'); return; }
+  const defDate = (presetDate && presetDate >= p.start && presetDate <= maxDate) ? presetDate : maxDate;
   overlay(`<div class="mask center" onclick="if(event.target===this)closeOverlay()">
     <div class="dialog" style="width:300px">
       <div class="dt">手动补录</div>
       <div class="db" style="text-align:left;padding-bottom:6px">记录会标记为「补录」，在详情、记录面板与日历上可辨识。</div>
       <div class="picker">
-        <select id="mdate">${opts.join('')}</select>
+        <input type="date" id="mdate" min="${p.start}" max="${maxDate}" value="${defDate}" style="min-width:0" />
         <div class="withunit"><input id="mmin" type="number" min="1" max="720" value="20" oninput="minsPreview()" /><span>分钟</span></div>
       </div>
       <div class="mpreview" id="mprev">= 20 分钟</div>
@@ -1174,9 +1181,11 @@ function goBack(){
   else go('list');
 }
 
-/* 导出 */
+/* 导出：已删除计划及其片段不进入备份 */
 function exportAll(){
-  const data = { plans: S.plans, segments: S.segs.map(s => ({
+  const plans = S.plans.filter(p => !p.deletedAt);
+  const ids = new Set(plans.map(p => p.id));
+  const data = { plans, segments: S.segs.filter(s => ids.has(s.planId)).map(s => ({
     plan_id:s.planId, local_date:s.date, duration_min:s.min, source:s.source, close_reason:s.reason })) };
   download('plan-timer-backup-' + DEMO_TODAY + '.json', JSON.stringify(data, null, 2));
   toast('导出记录（分享文件）：已生成 JSON 文件');
@@ -1202,11 +1211,13 @@ function bindCommon(){
     const id = card.dataset.id;
     const cancel = () => { if (t){ clearTimeout(t); t = null; } };
     card.addEventListener('pointerdown', (e) => {
+      if (!e.isPrimary) return;
       longPressed = false; sx = e.clientX; sy = e.clientY;
       t = setTimeout(() => { t = null; longPressed = true; openActionSheet(id); }, 550);
     });
     card.addEventListener('pointerup', cancel);
     card.addEventListener('pointerleave', cancel);
+    card.addEventListener('pointercancel', cancel);   // 滚动等中断时取消长按
     card.addEventListener('pointermove', (e) => {
       if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) cancel();
     });
