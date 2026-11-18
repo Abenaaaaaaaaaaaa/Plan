@@ -1,0 +1,6 @@
+.page { padding-bottom: 60rpx; }
+.label { font-size: 28rpx; color: #9a9a9a; margin-bottom: 20rpx; }
+.pname { font-size: 34rpx; font-weight: 600; }
+.ipt { font-size: 32rpx; background: #f6f6f6; border-radius: 16rpx; padding: 22rpx 24rpx; }
+.date-row { font-size: 32rpx; padding: 8rpx 0; }
+.save-wrap { padding: 40rpx 32rpx 0; }

@@ -1,0 +1,49 @@
+<view class="page">
+  <view class="cnav">
+    <view class="cnav-btn" data-n="-1" bindtap="nav">‹</view>
+    <view class="cnav-ttl">{{title}}</view>
+    <view class="cnav-today" bindtap="goToday">本月</view>
+    <view class="cnav-btn" data-n="1" bindtap="nav">›</view>
+  </view>
+
+  <view class="wk"><text>一</text><text>二</text><text>三</text><text>四</text><text>五</text><text>六</text><text>日</text></view>
+
+  <view class="cgrid" bindtouchstart="onTouchStart" bindtouchend="onTouchEnd">
+    <view wx:for="{{cells}}" wx:key="key"
+      class="cc {{item.cls}} {{item.future ? 'future' : ''}} {{pulse === item.date ? 'pulse' : ''}}"
+      data-date="{{item.cls === 'out' ? '' : item.date}}" bindtap="openDay">
+      <view wx:if="{{item.cls !== 'out'}}" class="cd">
+        <text class="cdn {{item.today ? 'today' : ''}}">{{item.d}}</text>
+        <text wx:if="{{item.more}}" class="more">{{item.more}}</text>
+        <view wx:if="{{item.manual}}" class="mdot"></view>
+      </view>
+      <view wx:for="{{item.chips}}" wx:for-item="chip" wx:for-index="ci" wx:key="ci" class="tb {{chip.cls}}">{{chip.label}}</view>
+    </view>
+  </view>
+
+  <view class="sum3">
+    <view class="sbox"><view class="sk">记录天数</view><view class="sv">{{stats.days}}<text> 天</text></view></view>
+    <view class="sbox"><view class="sk">达标天数</view><view class="sv">{{stats.met}}<text> 天</text></view></view>
+    <view class="sbox"><view class="sk">累计投入</view><view class="sv">{{stats.hours}}<text>h</text></view></view>
+  </view>
+
+  <view class="clegend">
+    <view class="lg"><view class="sw g"></view>达标</view>
+    <view class="lg"><view class="sw y"></view>未达标</view>
+    <view class="q" bindtap="legend">?</view>
+    <view class="tip">左右滑动切月 · 点击日期看详情</view>
+  </view>
+
+  <view wx:if="{{daySheet}}" class="mask" bindtap="closeDay">
+    <view class="sheet" catchtap="">
+      <view class="hd">{{daySheet.date}}</view>
+      <view wx:if="{{daySheet.list.length === 0}}" class="tiny day-empty">当天没有记录</view>
+      <view wx:for="{{daySheet.list}}" wx:key="id" class="day-row">
+        <text>{{item.name}}</text>
+        <text>{{item.min}} 分钟 · {{item.met ? '达标' : '未达标'}}</text>
+      </view>
+      <view wx:if="{{daySheet.canAdd}}" class="btn day-btn" bindtap="addManual">补录这一天</view>
+      <view class="btn ghost day-btn" bindtap="closeDay">关闭</view>
+    </view>
+  </view>
+</view>

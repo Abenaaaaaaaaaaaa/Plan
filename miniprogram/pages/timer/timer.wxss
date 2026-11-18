@@ -1,0 +1,14 @@
+.page { min-height: 100vh; display: flex; flex-direction: column; }
+.goal { padding: 40rpx 40rpx 0; font-size: 28rpx; color: #9a9a9a; }
+.acc { padding: 16rpx 40rpx 0; font-size: 34rpx; font-weight: 600; color: #333; }
+
+.ringwrap { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+.rtext { position: absolute; text-align: center; }
+.rtext .t { font-size: 80rpx; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rtext .st { font-size: 26rpx; color: #9a9a9a; margin-top: 12rpx; }
+
+.ops { padding: 0 40rpx calc(40rpx + env(safe-area-inset-bottom)); }
+.row2 { display: flex; gap: 24rpx; }
+.row2 .btn { flex: 1; }
+.row2 .end { flex: 0 0 40%; }
+.manual { text-align: center; font-size: 26rpx; color: #9a9a9a; padding: 28rpx 0 0; }

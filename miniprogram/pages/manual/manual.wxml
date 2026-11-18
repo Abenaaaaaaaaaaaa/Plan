@@ -1,0 +1,19 @@
+<view class="page">
+  <view class="card">
+    <view class="label">所属计划</view>
+    <view class="pname">{{name}}</view>
+  </view>
+  <view class="card">
+    <view class="label">补录日期（不能晚于今天）</view>
+    <picker mode="date" value="{{date}}" start="{{start}}" end="{{maxDate}}" bindchange="onDate">
+      <view class="date-row"><text class="rv">{{date}} ›</text></view>
+    </picker>
+  </view>
+  <view class="card">
+    <view class="label">时长（分钟）</view>
+    <input class="ipt" type="number" value="{{min}}" placeholder="例如 45" bindinput="onMin" />
+  </view>
+  <view class="save-wrap">
+    <button class="btn" bindtap="save">保存补录</button>
+  </view>
+</view>

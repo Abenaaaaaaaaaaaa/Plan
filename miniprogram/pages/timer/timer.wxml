@@ -1,0 +1,25 @@
+<view wx:if="{{p}}" class="page">
+  <view class="goal">{{goalText}}</view>
+  <view class="acc">{{accText}}</view>
+
+  <view class="ringwrap">
+    <canvas canvas-id="ring" style="width: 280px; height: 280px"></canvas>
+    <view class="rtext">
+      <view class="t">{{timeText}}</view>
+      <view class="st">{{stateText}}</view>
+    </view>
+  </view>
+
+  <view class="ops">
+    <button wx:if="{{!hasSession}}" class="btn" bindtap="start">开始</button>
+    <view wx:elif="{{running}}" class="row2">
+      <button class="btn" bindtap="pause">暂停</button>
+      <button class="btn ghost end" bindtap="end">结束</button>
+    </view>
+    <view wx:else class="row2">
+      <button class="btn" bindtap="resume">继续</button>
+      <button class="btn ghost end" bindtap="end">结束</button>
+    </view>
+    <view class="manual" bindtap="manual">手动补录</view>
+  </view>
+</view>

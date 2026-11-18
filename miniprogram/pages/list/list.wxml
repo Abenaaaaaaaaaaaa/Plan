@@ -1,0 +1,43 @@
+<view class="page">
+  <view class="topbar">
+    <view class="ttl">我的计划</view>
+    <view class="me-link" bindtap="goMe">我的 ›</view>
+  </view>
+  <view class="tiny today">今天 {{today}}</view>
+
+  <view class="ops">
+    <view class="op" bindtap="newPlan">＋ 新建计划</view>
+  </view>
+
+  <view wx:if="{{cards.length === 0}}" class="empty">
+    <view class="empty-ttl">还没有计划</view>
+    <view class="tiny">从一个小目标开始，比如每天读书 30 分钟</view>
+    <view class="btn empty-btn" bindtap="newPlan">新建第一个计划</view>
+  </view>
+
+  <view wx:for="{{cards}}" wx:key="id" class="swipe-item {{item.offset !== 0 ? 'open' : ''}}">
+    <view class="swipe-actions">
+      <view class="act pin" catchtap="onPin" data-id="{{item.id}}">{{item.pinned ? '取消置顶' : '置顶'}}</view>
+      <view class="act del" catchtap="onDelete" data-id="{{item.id}}">删除</view>
+    </view>
+    <view class="pc {{item.dead ? 'dead' : ''}}"
+      style="transform: translateX({{item.offset}}px)"
+      data-id="{{item.id}}" data-index="{{index}}"
+      bindtap="openDetail"
+      bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd">
+      <view class="pc-head">
+        <view class="pc-name">{{item.name}}</view>
+        <view class="badge {{item.badgeClass}}">{{item.status}}</view>
+        <view wx:if="{{item.pinned}}" class="pin-tag">置顶</view>
+      </view>
+      <view class="pc-progress">
+        <view class="pc-pct">{{item.pct}}<text class="u">%</text></view>
+        <view class="pc-bar"><view class="pc-bar-in" style="width: {{item.barWidth}}%"></view></view>
+      </view>
+      <view class="pc-line">{{item.line3}}</view>
+      <view class="pc-line sub">{{item.line4}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{cards.length > 0}}" class="tiny swipe-hint">左滑卡片可置顶或删除</view>
+</view>

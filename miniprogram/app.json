@@ -1,0 +1,30 @@
+{
+  "pages": [
+    "pages/list/list",
+    "pages/calendar/calendar",
+    "pages/detail/detail",
+    "pages/timer/timer",
+    "pages/form/form",
+    "pages/manual/manual",
+    "pages/me/me"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#f6f6f6",
+    "navigationBarTitleText": "计划计时器",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f6f6f6"
+  },
+  "tabBar": {
+    "color": "#9a9a9a",
+    "selectedColor": "#111111",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/list/list", "text": "计划" },
+      { "pagePath": "pages/calendar/calendar", "text": "汇总" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

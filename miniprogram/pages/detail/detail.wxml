@@ -1,0 +1,114 @@
+<view wx:if="{{p}}" class="page">
+  <view class="seg">
+    <view class="s {{tab === 'overview' ? 'on' : ''}}" data-tab="overview" bindtap="setTab">计划概况</view>
+    <view class="s {{tab === 'record' ? 'on' : ''}}" data-tab="record" bindtap="setTab">执行记录</view>
+    <view class="more" bindtap="more">···</view>
+  </view>
+
+  <!-- 概况 -->
+  <block wx:if="{{tab === 'overview'}}">
+    <view class="hero">
+      <view class="hero-top">
+        <view class="badge {{ov.badgeClass}}">{{ov.status}}</view>
+        <view wx:if="{{ov.pinned}}" class="pin-tag">置顶</view>
+      </view>
+      <view class="pct-wrap">
+        <view class="pct-big">{{ov.pct}}<text class="u">%</text></view>
+        <view class="pct-side">
+          <view class="pct-acc">累计 {{ov.accLabel}}</view>
+          <view class="pct-tt">目标 {{ov.ttLabel}}</view>
+          <view wx:if="{{ov.overLabel}}" class="pct-tt">{{ov.overLabel}}</view>
+        </view>
+      </view>
+      <view class="hero-bar"><view class="hero-bar-in" style="width: {{ov.barWidth}}%"></view></view>
+      <view wx:if="{{ov.changedAt}}" class="tiny changed">{{ov.changedAt}}</view>
+    </view>
+
+    <view wx:if="{{ov.sched}}" class="sched card">
+      <view class="si"><view class="k">应完成</view><view class="v">{{ov.sched.due}}</view></view>
+      <view class="si"><view class="k">已投入</view><view class="v">{{ov.sched.acc}}</view></view>
+      <view class="si"><view class="k">{{ov.sched.isGap ? '落后' : '进度'}}</view>
+        <view class="v {{ov.sched.isGap ? 'gap' : ''}}">{{ov.sched.gapLabel}}</view></view>
+    </view>
+
+    <view class="todaybar card">
+      <text class="t-k">{{ov.todayK}}</text>
+      <text wx:if="{{ov.todayV}}" class="t-v">{{ov.todayV}}</text>
+      <text class="t-u">{{ov.todayU}}</text>
+    </view>
+
+    <view class="grid2">
+      <view class="kpi">
+        <view class="k">每日目标</view>
+        <view class="v">{{ov.targetLabel}}<text class="sm">{{ov.targetMin}} 分钟</text></view>
+      </view>
+      <view class="kpi">
+        <view class="k">计划区间</view>
+        <view class="rline"><text class="rl">开始</text><text>{{ov.start}}</text></view>
+        <view class="rline"><text class="rl">结束</text><text>{{ov.end}}</text></view>
+        <view class="rtip">共 {{ov.days}} 天</view>
+      </view>
+      <view class="kpi">
+        <view class="k">已执行</view>
+        <view class="v">{{ov.activeDays}}<text class="sm">天</text></view>
+        <view class="rtip">有记录的天数</view>
+      </view>
+      <view class="kpi">
+        <view class="k">达标</view>
+        <view class="v">{{ov.metDays}}<text class="sm">天</text></view>
+        <view class="rtip">每日 ≥ {{ov.targetMin}} 分钟</view>
+      </view>
+    </view>
+    <view class="note">共 {{ov.days}} 天 · 目标总量 {{ov.ttLabel}} · 统计窗口含首尾</view>
+  </block>
+
+  <!-- 执行记录 -->
+  <block wx:if="{{tab === 'record'}}">
+    <view class="rlegend">
+      <view class="lg"><view class="dot g"></view>达标</view>
+      <view class="lg"><view class="dot y"></view>有记录未达标</view>
+      <view class="lg"><view class="dot n"></view>无记录</view>
+      <view class="lg"><view class="dot m"></view>含补录</view>
+    </view>
+    <view class="rtools">
+      <view class="tiny">区间外显示为空</view>
+      <view class="tag" bindtap="manual">＋ 手动补录</view>
+    </view>
+
+    <view wx:if="{{!hasSegs}}" class="empty">
+      <view class="empty-ttl">还没有记录</view>
+      <view class="tiny">去开始第一次计时</view>
+    </view>
+
+    <view wx:for="{{months}}" wx:key="key" class="mcard">
+      <view class="mh"><view class="mt">{{item.title}}</view><view class="ms">{{item.summary}}</view></view>
+      <view class="wk"><text>一</text><text>二</text><text>三</text><text>四</text><text>五</text><text>六</text><text>日</text></view>
+      <view class="mg">
+        <view wx:for="{{item.cells}}" wx:for-item="c" wx:key="key"
+          class="cell {{c.cls}} {{c.today ? 'today' : ''}}"
+          data-date="{{c.cls === 'out' ? '' : c.date}}" bindtap="openDay">
+          <text class="d">{{c.d}}</text>{{c.txt}}
+          <view wx:if="{{c.manual}}" class="man"></view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view class="footbar">
+    <button class="btn" disabled="{{footDisabled}}" bindtap="foot">{{footLabel}}</button>
+  </view>
+
+  <!-- 单日详情 -->
+  <view wx:if="{{daySheet}}" class="mask" bindtap="closeDay">
+    <view class="sheet" catchtap="">
+      <view class="hd">{{daySheet.date}}</view>
+      <view class="day-total">共 {{daySheet.total}} 分钟 / 目标 {{daySheet.target}} 分钟 · {{daySheet.met ? '已达标' : '未达标'}}</view>
+      <view wx:if="{{daySheet.list.length === 0}}" class="tiny day-empty">当天没有记录</view>
+      <view wx:for="{{daySheet.list}}" wx:key="id" class="day-row">
+        <text>{{item.source}}</text><text>{{item.min}} 分钟</text>
+      </view>
+      <view class="btn day-btn" wx:if="{{daySheet.canAdd}}" bindtap="addManual">补录这一天</view>
+      <view class="btn ghost day-btn" bindtap="closeDay">关闭</view>
+    </view>
+  </view>
+</view>

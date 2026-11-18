@@ -1,0 +1,34 @@
+<view class="page">
+  <view class="me-head card">
+    <button class="avatar-btn" open-type="chooseAvatar" bind:chooseavatar="chooseAvatar">
+      <image wx:if="{{avatar}}" class="avatar" src="{{avatar}}" mode="aspectFill" />
+      <view wx:else class="avatar avatar-fallback">{{initial}}</view>
+    </button>
+    <view class="me-info">
+      <input class="nick" type="nickname" value="{{nick}}" placeholder="点击设置昵称"
+        placeholder-class="nick-ph" bindblur="onNick" />
+      <view class="tiny">数据保存在本机，换设备前请导出备份</view>
+    </view>
+  </view>
+
+  <view class="card menu">
+    <view class="mi" bindtap="exportData"><text>导出记录</text><text class="arrow">备份为 JSON 文件 ›</text></view>
+    <view class="mi" bindtap="importData"><text>导入记录</text><text class="arrow">从聊天文件恢复 ›</text></view>
+  </view>
+
+  <view class="card menu">
+    <view class="mi" data-type="agreement" bindtap="openLegal"><text>用户协议</text><text class="arrow">›</text></view>
+    <view class="mi" data-type="privacy" bindtap="openLegal"><text>隐私政策</text><text class="arrow">›</text></view>
+    <view class="mi" bindtap="about"><text>关于</text><text class="arrow">v1.0.0 ›</text></view>
+  </view>
+
+  <view wx:if="{{legal}}" class="mask" bindtap="closeLegal">
+    <view class="sheet" catchtap="">
+      <view class="hd">{{legal.title}}</view>
+      <scroll-view scroll-y class="legal-body">
+        <text decode="{{true}}">{{legal.body}}</text>
+      </scroll-view>
+      <view class="btn ghost day-btn" bindtap="closeLegal">关闭</view>
+    </view>
+  </view>
+</view>

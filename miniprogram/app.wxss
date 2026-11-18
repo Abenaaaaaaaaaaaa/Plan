@@ -1,0 +1,72 @@
+page {
+  background: #f6f6f6;
+  color: #1a1a1a;
+  font-size: 30rpx;
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+}
+
+.card {
+  background: #fff;
+  border-radius: 28rpx;
+  margin: 24rpx 32rpx 0;
+  padding: 28rpx;
+}
+
+.btn {
+  height: 100rpx;
+  border-radius: 24rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+  color: #fff;
+  margin: 0;
+  padding: 0;
+  line-height: normal;
+}
+.btn::after { border: 0; }
+.btn.ghost { background: #f2f2f2; color: #333; }
+.btn[disabled] { background: #e5e5e5; color: #aaa; }
+
+.badge {
+  display: inline-block;
+  font-size: 22rpx;
+  line-height: 40rpx;
+  padding: 0 16rpx;
+  border-radius: 20rpx;
+  background: #eef4ff;
+  color: #4a6fa5;
+}
+.badge.run { background: #e6f7ee; color: #0c8a4c; }
+.badge.done { background: #eef4ff; color: #4a6fa5; }
+.badge.exp { background: #f1f1f1; color: #8a8a8a; }
+.badge.soon { background: #fff3e2; color: #b26a00; }
+
+.pin-tag {
+  font-size: 22rpx;
+  color: #0c8a4c;
+  background: #e6f7ee;
+  border-radius: 20rpx;
+  padding: 4rpx 14rpx;
+}
+
+.tiny { font-size: 24rpx; color: #9a9a9a; }
+
+.mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, .4);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+}
+.sheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 28rpx 28rpx 0 0;
+  padding: 28rpx 32rpx calc(28rpx + env(safe-area-inset-bottom));
+  max-height: 70vh;
+}
+.sheet .hd { font-size: 32rpx; font-weight: 600; margin-bottom: 16rpx; }

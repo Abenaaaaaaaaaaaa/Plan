@@ -1,0 +1,23 @@
+.page { padding-bottom: 60rpx; }
+.label { font-size: 28rpx; color: #9a9a9a; margin-bottom: 20rpx; }
+.ipt {
+  font-size: 32rpx; background: #f6f6f6; border-radius: 16rpx;
+  padding: 22rpx 24rpx;
+}
+.pills { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.pill {
+  font-size: 28rpx; padding: 16rpx 28rpx; border-radius: 40rpx;
+  background: #f2f2f2; color: #555;
+}
+.pill.on { background: #111; color: #fff; }
+.custom-row { display: flex; align-items: center; gap: 16rpx; margin-top: 20rpx; }
+.custom-ipt { width: 200rpx; }
+.unit { font-size: 28rpx; color: #666; }
+.date-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 24rpx 0; border-top: 1px solid #f2f2f2; font-size: 30rpx;
+}
+.date-row:first-of-type { border-top: 0; }
+.rl { color: #9a9a9a; }
+.rv { font-weight: 500; }
+.save-wrap { padding: 40rpx 32rpx 0; }
