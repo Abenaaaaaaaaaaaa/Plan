@@ -437,15 +437,15 @@
 <script>
 /* ============ 常量与工具 ============ */
 const DAY = 86400000;
-const DEMO_TODAY = '2027-02-28';           // PRD 示例"今天"（计划第 120 天）
-const KEY = 'plan_timer_v2_state';
+const KEY = 'plan_timer_v3_state';
 const STATE_VERSION = 2;
 const DEMO = /[?&]demo=1(?:&|$)/.test(location.search);   // 演示控件（重置数据/模拟跨天/加速）
 
 const $ = (s) => document.querySelector(s);
 const pad2 = (n) => String(n).padStart(2, '0');
 const fmtDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-const TODAY = fmtDate(new Date());         // 系统真实今天，"本月"按它定位
+const DEMO_TODAY = fmtDate(new Date());    // 今天 = 系统真实日期
+const TODAY = DEMO_TODAY;
 const parseD = (s) => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
 const addDays = (s, n) => { const d = parseD(s); d.setDate(d.getDate()+n); return fmtDate(d); };
 const diffDays = (a, b) => Math.round((parseD(a) - parseD(b)) / DAY);
@@ -478,7 +478,7 @@ let S = load();
 
 function emptyState(){
   return { v: STATE_VERSION, plans: [], segs: [], running: null, session: null, tab: 'plans',
-    deleted: null, speed: 1, calYM: {y:2027, m:1} };
+    deleted: null, speed: 1, calYM: { y: new Date().getFullYear(), m: new Date().getMonth() } };
 }
 function load(){
   try{
@@ -503,7 +503,7 @@ function normalizeState(st){
   st.session = st.session || null;
   st.tab = st.tab === 'cal' ? 'cal' : 'plans';
   st.speed = st.speed > 1 ? 60 : 1;
-  st.calYM = (st.calYM && typeof st.calYM.m === 'number') ? st.calYM : { y: 2027, m: 1 };
+  st.calYM = (st.calYM && typeof st.calYM.m === 'number') ? st.calYM : { y: new Date().getFullYear(), m: new Date().getMonth() };
   return st;
 }
 let saveWarned = false;
@@ -516,57 +516,56 @@ function save(){
 
 function seed(){
   const st = emptyState();
+  const T = DEMO_TODAY;                    // 所有示例数据相对"今天"生成
   const P = (id,name,target,start,end,pinned) => ({
     id, name, targetMin: target, start, end,
     createdAt: Date.now(), updatedAt: Date.now(),
     pinnedAt: pinned ? Date.now() : null, deletedAt: null, targetVersion: 1, changedAt: null
   });
   st.plans = [
-    P('p1','A计划', 60, '2026-11-01', '2027-10-31', true),
-    P('p2','冲刺计划', 60, '2027-02-01', '2027-03-31', false),
-    P('p3','B计划', 45, '2026-11-01', '2027-04-30', false),
-    P('p4','C计划', 30, '2026-08-01', '2026-10-31', false),
-    P('p5','D计划', 25, '2027-03-01', '2027-05-31', false),
-    P('p6','E计划', 45, '2026-05-01', '2026-06-30', false),
-    P('p7','日语计划', 30, '2027-01-15', '2027-06-30', false),
+    P('p1','A计划', 60, addDays(T,-119), addDays(T,245), true),     // 今天是第 120 天，共 365 天
+    P('p2','冲刺计划', 60, addDays(T,-27), addDays(T,31), false),
+    P('p3','B计划', 45, addDays(T,-119), addDays(T,61), false),
+    P('p4','C计划', 30, addDays(T,-211), addDays(T,-120), false),   // 已过期
+    P('p5','D计划', 25, addDays(T,1), addDays(T,92), false),        // 未开始
+    P('p6','E计划', 45, addDays(T,-303), addDays(T,-243), false),   // 已结束
+    P('p7','日语计划', 30, addDays(T,-44), addDays(T,122), false),
   ];
 
-  /* A计划：80 个有记录日 = 60 天×90min + 18 天×30min + 1 天×28min + 今天 32min = 6000min
-     其中 2027-02-24 记 30min，专门用于"一天多任务混态"示例（与冲刺计划同日） */
-  let i = 0;
+  /* A计划：60 天×90min + 18 天×30min + 1 天×28min + 今天 32min = 6000min
+     T-4 记 30min，与冲刺计划同日构成"一天多任务混态"示例 */
   for (let d = 0; d < 120; d++){
-    const date = addDays('2026-11-01', d);
-    if (date === DEMO_TODAY) continue;
-    if (d === 35) continue;                       // 30min 挪到 2027-02-24
+    const date = addDays(T, d - 119);
+    if (date === T) continue;
+    if (d === 35) continue;                       // 30min 挪到 T-4
     if (d % 2 === 0) {
-      if (date === '2027-02-19') {               // 90min 拆成 70 计时 + 20 补录 → "含补录"示例日
+      if (date === addDays(T,-9)) {               // 90min 拆成 70 计时 + 20 补录 → "含补录"示例日
         pushSeg('p1', date, 70, 'timer');
         pushSeg('p1', date, 20, 'manual');
       } else pushSeg('p1', date, 90, 'timer');
     }
     else if (d <= 37) { pushSeg('p1', date, d === 37 ? 28 : 30, 'timer'); }
   }
-  pushSeg('p1', '2027-02-24', 30, 'timer');
-  pushSeg('p1', DEMO_TODAY, 32, 'timer');
+  pushSeg('p1', addDays(T,-4), 30, 'timer');
+  pushSeg('p1', T, 32, 'timer');
 
-  /* 冲刺计划：3910min / 3540min = 110.5%，已超额 6.2h
-     2027-02-23 = 110min，2027-02-24 = 60min（后者与 A计划 30min 构成混态示例日） */
-  for (let d = 0; d < 22; d++) pushSeg('p2', addDays('2027-02-01', d), 170, 'timer');
-  pushSeg('p2', '2027-02-23', 110, 'timer');
-  pushSeg('p2', '2027-02-24', 60, 'timer');
+  /* 冲刺计划：已超额示例；T-5 = 110min，T-4 = 60min */
+  for (let d = 0; d < 22; d++) pushSeg('p2', addDays(T, d - 27), 170, 'timer');
+  pushSeg('p2', addDays(T,-5), 110, 'timer');
+  pushSeg('p2', addDays(T,-4), 60, 'timer');
 
-  /* E计划：已结束 + 超额示例 2867min / 2745min = 104.4% */
-  for (let d = 0; d < 61; d++) pushSeg('p6', addDays('2026-05-01', d), 47, 'timer');
+  /* E计划：已结束 + 超额示例 */
+  for (let d = 0; d < 61; d++) pushSeg('p6', addDays(T, d - 303), 47, 'timer');
 
-  /* B计划：进行中；2027-02-23 补 20min，使该日共 4 个任务 → 格内显示 3 条 + "+1" */
-  for (let d = 0; d < 27; d++) pushSeg('p3', addDays('2026-11-01', d*2), 45, 'timer');
-  pushSeg('p3', '2027-02-23', 20, 'timer');
+  /* B计划：进行中；T-5 补 20min，使该日共 4 个任务 → 格内显示 3 条 + "+1" */
+  for (let d = 0; d < 27; d++) pushSeg('p3', addDays(T, d*2 - 119), 45, 'timer');
+  pushSeg('p3', addDays(T,-5), 20, 'timer');
 
-  /* 日语计划：只在 2027-02-23 记 25min → 该日 4 个任务，触发「3 条 + +1」示例 */
-  pushSeg('p7', '2027-02-23', 25, 'timer');
+  /* 日语计划：只在 T-5 记 25min → 该日 4 个任务，触发「3 条 + +1」示例 */
+  pushSeg('p7', addDays(T,-5), 25, 'timer');
 
-  /* C计划：已过期，1600/2760 = 58.0% */
-  for (let d = 0; d < 40; d++) pushSeg('p4', addDays('2026-08-01', d*2), 40, 'timer');
+  /* C计划：已过期示例 */
+  for (let d = 0; d < 40; d++) pushSeg('p4', addDays(T, d*2 - 211), 40, 'timer');
 
   st.segs.sort((a,b)=>a.date.localeCompare(b.date));
   return st;
